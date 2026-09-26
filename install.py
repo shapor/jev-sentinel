@@ -1,4 +1,6 @@
-"""Install Jev Sentinel into a project: write its one-sentence scope and add our PreToolUse hook to Claude Code.
+"""Install Jev Sentinel into a project: write its one-sentence scope and add our hooks to Claude Code.
+
+PreToolUse gates every tool call; PostToolUse remembers what a human approved.
 
 Usage: python3 install.py DIR "one sentence describing the agent's job"
        python3 install.py --uninstall DIR
@@ -10,20 +12,23 @@ import pathlib
 import sys
 
 COMMAND = f"python3 {pathlib.Path(__file__).resolve().with_name('hook.py')}"
+HOOKS = {"PreToolUse": COMMAND, "PostToolUse": f"{COMMAND} post"}
 
 
 def ours(entry):
-    return any(h.get("command") == COMMAND for h in entry.get("hooks", []))
+    return any(h.get("command") in HOOKS.values() for h in entry.get("hooks", []))
 
 
 def edit_settings(project, install):
     path = pathlib.Path(project) / ".claude" / "settings.local.json"
     settings = json.loads(path.read_text()) if path.exists() else {}
-    pre = settings.setdefault("hooks", {}).setdefault("PreToolUse", [])
-    had = any(ours(e) for e in pre)
-    pre[:] = [e for e in pre if not ours(e)]
-    if install:
-        pre.append({"matcher": "*", "hooks": [{"type": "command", "command": COMMAND}]})
+    had = False
+    for event, command in HOOKS.items():
+        entries = settings.setdefault("hooks", {}).setdefault(event, [])
+        had |= any(ours(e) for e in entries)
+        entries[:] = [e for e in entries if not ours(e)]
+        if install:
+            entries.append({"matcher": "*", "hooks": [{"type": "command", "command": command}]})
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(settings, indent=2) + "\n")
     return path, had

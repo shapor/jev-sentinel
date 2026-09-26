@@ -366,8 +366,11 @@ function addLive(r, text) {
   const ms = [...seen.ms].sort((a, b) => a - b)[seen.ms.length >> 1];
   $("liveStats").textContent = `${seen.n} checks · ${seen.block} blocked · ${ms} ms median`;
 }
+// Show one session at a time: when a new agent session starts, the feed resets to it.
+let curSession = null;
 setInterval(() => fetch("/api/live?since=" + since).then(r => r.json()).then(rows => rows.forEach(r => {
   since = Math.max(since, r.t);
+  if (r.session !== curSession) { curSession = r.session; $("live").innerHTML = ""; seen = {n: 0, block: 0, ms: []}; }
   addLive(r, r.action);
 })), 1000);
 
