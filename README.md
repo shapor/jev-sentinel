@@ -19,9 +19,22 @@ the model analyzing the transcripts might adopt the agents' perspective.
 
 ## Why Jev
 
-Jev is a classification-only model. It returns calibrated probabilities and cannot write prose, so the content it
-reads cannot talk it into a verdict. It answers our three questions (how far out of scope, what stage, block or
-not) in one call at about 0.2 s median, so gating every single action is affordable.
+**It never refuses.** A monitor has to read the worst content an agent produces, and judge it, without flinching.
+A safety-tuned frontier model can refuse the very check it's asked to run, or water down its answer. Jev is a pure
+classifier with no refusal layer: it scored all 53,870 real attack payloads from the Hugging Face incident with
+0 refusals and 0 errors.
+
+**It's an independent auditor, not self-monitoring.** Using the agent's own model family to watch the agent is the
+trap METR ran into when GPT-5.6 Sol analyzed transcripts written by GPT-5.6 Sol, and worried it might side with
+them. Jev is a separate system from the agent it watches.
+
+**It can't be talked into a verdict.** Jev returns calibrated probabilities and cannot write prose, so hostile
+content in what it reads has no way to argue for an answer or hijack the monitor.
+
+**It's cheap and fast enough for every action.** After the breakouts, OpenAI began monitoring every tool-using
+inference "at significant compute cost." One Jev call answers our three questions (how far out of scope, what
+stage, block or not) in about 0.23 s median, roughly $55 per million actions by our token-count estimate versus
+about $6,900 for a frontier LLM judge.
 
 ## Results
 
