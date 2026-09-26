@@ -5,5 +5,8 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY . .
 ENV SENTINEL_HOST=0.0.0.0 SWARM_TRACES=/data/redacted.jsonl.gz
+# Run unprivileged; the mounted results/ directory must be writable by uid 10001.
+RUN useradd --uid 10001 --no-create-home sentinel && chown -R sentinel /app
+USER sentinel
 EXPOSE 8000
 CMD ["python3", "server.py"]

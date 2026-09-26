@@ -31,4 +31,4 @@ There's one call per agent action, with three questions:
 - `stage`: a choice among 8 attack stages.
 - `block`: a yes/no on whether to block.
 
-The verdict comes from the `block` probability: 0.7 or higher blocks, 0.5 or higher asks a human. Errors fall back to asking a human, never to allowing. See `sentinel.py`.
+The verdict comes from the `block` probability: 0.7 or higher blocks, 0.5 or higher asks a human. The exception: when Jev says the action is aimed at the task itself (stage `target_exploitation` or `local_setup`), a score of 0.7 or higher asks a human instead of blocking. Errors fall back to asking a human, never to allowing. See `sentinel.py`.
