@@ -1,4 +1,4 @@
-.PHONY: hunt bench serve victim check install-hook agent-demo
+.PHONY: hunt bench serve victim check install-hook agent-demo test
 
 hunt:     ## score every Swarm Traces unit (resumable)
 	python3 hunt.py swarm
@@ -11,6 +11,9 @@ serve:    ## demo page + API on http://127.0.0.1:8000
 
 victim:   ## local vulnerable target for the live agent on http://127.0.0.1:8080
 	cd victim && python3 app.py
+
+test:     ## offline tests (Jev mocked)
+	python3 -m unittest -v test_sentinel
 
 check:    ## judge one action: make check A='ls -la'
 	python3 sentinel.py "$(A)"

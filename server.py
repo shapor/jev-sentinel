@@ -5,6 +5,7 @@ import concurrent.futures
 import http.server
 import threading
 import json
+import os
 import pathlib
 import random
 
@@ -165,5 +166,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
 if __name__ == "__main__":
     TEXT.update((u["id"], u["text"]) for u in data.swarm_units())
     SANCTIONED.extend(a["text"] for a in data.cybench_actions() if len(a["text"]) < 300)
-    print("serving http://127.0.0.1:8000")
-    http.server.ThreadingHTTPServer(("127.0.0.1", 8000), Handler).serve_forever()
+    host = os.environ.get("SENTINEL_HOST", "127.0.0.1")
+    print(f"serving http://{host}:8000")
+    http.server.ThreadingHTTPServer((host, 8000), Handler).serve_forever()

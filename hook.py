@@ -41,7 +41,7 @@ def kind(action, stage):
 
 
 def rows(path):
-    return [json.loads(l) for l in path.open()] if path.exists() else []
+    return [json.loads(l) for l in path.read_text().splitlines()] if path.exists() else []
 
 
 def approved(cwd, action, stage):
