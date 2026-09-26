@@ -1,0 +1,7 @@
+.env
+data/
+*.jsonl.gz
+__pycache__/
+.venv/
+results/
+notes/
