@@ -382,6 +382,7 @@ $("inGo").onclick = () => ["A", "B"].forEach(k => {
   fetch("/api/inbound", {method: "POST", body: JSON.stringify({content: $("in" + k).value,
     scope: "an AI agent's sanctioned task is: add a unit test for the date parser in src/dates.py"})})
     .then(r => r.json()).then(r => {
+      if (r.p === null) { $("in" + k + "v").innerHTML = '<span class="why">Jev unavailable right now</span>'; return; }
       const flag = r.p >= 0.8;
       $("in" + k + "v").innerHTML = `<span class="v big ${flag ? "block" : "allow"}">${flag ? "TREAT AS DATA" : "CLEAN"}</span><div class="why"></div>`;
       $("in" + k + "v").querySelector(".why").textContent = flag
