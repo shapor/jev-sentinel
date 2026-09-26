@@ -49,6 +49,12 @@ html{scroll-snap-type:y proximity}
 .why3 b{display:block;color:#e6edf3;font-size:22px;margin-bottom:8px}
 .next{font-size:24px;line-height:1.6;color:#8b949e}.next b{color:#e6edf3}
 .end{font-size:72px;margin:40px 0 0;background:linear-gradient(90deg,#58a6ff,#bc8cff);-webkit-background-clip:text;color:transparent}
+#ticker{height:210px;overflow:hidden;font-size:16px;margin:4px 0 10px;mask-image:linear-gradient(#000 55%,transparent)}
+#ticker div{display:grid;grid-template-columns:80px 110px 1fr;gap:14px;align-items:center;padding:3px 0}
+#ticker code{color:#8b949e}#ticker .v{font-size:13px}
+#field{width:100%;image-rendering:pixelated;border-radius:8px;margin-bottom:6px}
+.legend{color:#8b949e;font-size:14px;margin-bottom:18px}.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin:0 4px 0 12px;vertical-align:-1px}
+.lb{background:#da3633}.la{background:#f2cc60}.lo{background:#56d364}
 .appendix{margin:60px 0}.appendix summary{cursor:pointer;color:#8b949e}
 .panel{border:1px dashed #30363d;border-radius:12px;padding:16px;min-height:120px;color:#8b949e;margin-bottom:12px}
 </style>
@@ -72,6 +78,9 @@ html{scroll-snap-type:y proximity}
   <div><b id="tFp">0%</b>sanctioned hackers blocked</div>
   <div><b id="tCost">$0.00</b>Jev cost</div>
  </div>
+ <canvas id="field" width="1440" height="300"></canvas>
+ <div id="ticker"></div>
+ <div class="legend"><i class="lb"></i>blocked <i class="la"></i>sent to a human <i class="lo"></i>allowed · one dot per payload, in dataset order</div>
  <div class="cols">
   <div><h3>OpenAI swarm (Swarm Traces)</h3><div id="barsS"></div></div>
   <div><h3>Sanctioned CTF agents</h3><div id="barsC"></div></div>
@@ -187,14 +196,38 @@ function draw(el, counts, max) {
 // Load once so the bars are laid out before playing; Enter on this slide also plays.
 const TL = fetch("/api/timelapse").then(r => r.json()).then(d => { bars($("barsS"), d.stages); bars($("barsC"), d.stages); return d; });
 addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") $("play").click(); });
+// The payload field: one cell per swarm unit, row-major in dataset order.
+const FC = $("field").getContext("2d"), COLS = 540, CELL = 3, FILL = {b: "#da3633", a: "#f2cc60", l: "#56d364"};
+function dot(k, v) {
+  FC.fillStyle = v === "l" ? FILL.l : v === "k" ? FILL.a : FILL.b;
+  FC.fillRect((k % COLS) * CELL, Math.floor(k / COLS) * CELL, CELL, CELL);
+}
+function clearField(n) {
+  FC.canvas.height = Math.ceil(n / COLS) * CELL;
+  FC.fillStyle = "#161b22";
+  for (let k = 0; k < n; k++) FC.fillRect((k % COLS) * CELL, Math.floor(k / COLS) * CELL, CELL - 1, CELL - 1);
+}
+TL.then(d => clearField(d.swarm.length));
+
+// Ticker: the last few units read, newest on top, one line each (id · verdict · stage).
+const WORD = {b: "BLOCK", k: "ASK", l: "ALLOW"}, CLS = {b: "block", k: "ask", l: "allow"};
+function ticker(S, upto) {
+  const lines = [];
+  for (let k = upto - 1; k >= Math.max(0, upto - 7); k--) {
+    const [v, stage, id] = S[k];
+    lines.push(`<div><span class="v ${CLS[v]}">${WORD[v]}</span><code>${id}</code><span>${stage.replace(/_/g, " ")}</span></div>`);
+  }
+  $("ticker").innerHTML = lines.join("");
+}
 $("play").onclick = () => TL.then(d => {
-  bars($("barsS"), d.stages); bars($("barsC"), d.stages); $("punch").textContent = "";
+  bars($("barsS"), d.stages); bars($("barsC"), d.stages); $("punch").textContent = ""; clearField(d.swarm.length);
   const S = d.swarm, C = d.sanctioned, DURATION = 18000, t0 = performance.now(), cs = {}, cc = {};
   let i = 0, j = 0, stop = 0, fp = 0;
   const tick = () => {
     const x = Math.min(1, (performance.now() - t0) / DURATION), p = x < 1 ? 1 - Math.pow(1 - x, 2) : 1;  // ease-out
     const iEnd = Math.round(S.length * p), jEnd = Math.round(C.length * p);
-    for (; i < iEnd; i++) { cs[S[i][1]] = (cs[S[i][1]] || 0) + 1; if (S[i][0] !== "a") stop++; }
+    for (; i < iEnd; i++) { cs[S[i][1]] = (cs[S[i][1]] || 0) + 1; if (S[i][0] !== "l") stop++; dot(i, S[i][0]); }
+    ticker(S, i);
     for (; j < jEnd; j++) { cc[C[j][1]] = (cc[C[j][1]] || 0) + 1; if (C[j][0] === "b") fp++; }
     const max = Math.max(...Object.values(cs), 1);
     draw($("barsS"), cs, max); draw($("barsC"), cc, Math.max(...Object.values(cc), 1));

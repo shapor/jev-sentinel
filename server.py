@@ -65,7 +65,8 @@ def noise(width=2000):
 
 def timelapse():
     """Compact per-unit [verdict, stage] in scoring order, for animating the hunt; plus the sanctioned set."""
-    pack = lambda rows: [[r["verdict"][0], r.get("stage", "")] for r in rows]
+    code = {"block": "b", "ask": "k", "allow": "l"}
+    pack = lambda rows: [[code[r["verdict"]], r.get("stage", ""), r["id"]] for r in rows]
     return {"swarm": pack(load("swarm")), "sanctioned": pack(load("cybench")), "stages": list(sentinel.STAGES)}
 
 
