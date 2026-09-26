@@ -40,6 +40,15 @@ html{scroll-snap-type:y proximity}
 .feed div{font-size:19px}.feed code{font-size:15px}
 #verdict{margin:22px 0;font-size:28px;display:flex;gap:18px;align-items:center;min-height:64px}
 .v.big{font-size:34px;padding:8px 28px;border-radius:10px}.why{color:#8b949e}
+.flow{display:flex;align-items:center;gap:10px;margin:26px 0 40px}.flow .box{flex:1;padding:16px 10px}
+#live{max-height:58vh;overflow:auto}.flow>span{color:#484f58;font-size:30px}
+.box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:18px 20px;font-size:19px;text-align:center;line-height:1.3}
+.box small{color:#8b949e;font-size:14px}.box.jev{border-color:#58a6ff;box-shadow:0 0 24px #58a6ff44}
+.out{display:flex;flex-direction:column;gap:8px}.out em{font-style:normal;padding:4px 14px}
+.why3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.why3 div{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px;color:#8b949e}
+.why3 b{display:block;color:#e6edf3;font-size:22px;margin-bottom:8px}
+.next{font-size:24px;line-height:1.6;color:#8b949e}.next b{color:#e6edf3}
+.end{font-size:72px;margin:40px 0 0;background:linear-gradient(90deg,#58a6ff,#bc8cff);-webkit-background-clip:text;color:transparent}
 .appendix{margin:60px 0}.appendix summary{cursor:pointer;color:#8b949e}
 .panel{border:1px dashed #30363d;border-radius:12px;padding:16px;min-height:120px;color:#8b949e;margin-bottom:12px}
 </style>
@@ -83,9 +92,26 @@ html{scroll-snap-type:y proximity}
 </section>
 
 <section class="slide">
+ <h2>How it works</h2>
+ <div class="flow">
+  <div class="box">Agent proposes<br>an action</div><span>→</span>
+  <div class="box">Hook adds the<br>task scope</div><span>→</span>
+  <div class="box jev">Jev · one call<br><small>scope · stage · block</small></div><span>→</span>
+  <div class="box">Policy<br><small>stage gates the verdict</small></div><span>→</span>
+  <div class="out"><em class="v allow">ALLOW</em><em class="v ask">ASK A HUMAN</em><em class="v block">BLOCK</em></div>
+ </div>
+ <div class="why3">
+  <div><b>Can't be talked into it</b>Jev only returns probabilities. It can't write, so hostile content it reads can't steer its answer or hijack it.</div>
+  <div><b>Fast enough for every action</b>~0.23 s median, ~70 checks/s from one laptop. Gating every tool call is affordable.</div>
+  <div><b>Scope-aware, not keyword-aware</b>The same exploit is fine against the assigned target and blocked anywhere else.</div>
+ </div>
+</section>
+
+<section class="slide">
  <h2>Act 3 · Live: a real agent, every tool call checked</h2>
  <div class="sub">A Claude Code agent with Jev Sentinel as its PreToolUse hook. Each command is scored against the
   agent's task before it runs.</div>
+ <button id="runSanctioned">▶ Re-check a sanctioned CTF agent live</button>
  <div class="panel"><span id="liveStats">waiting for the agent…</span><div class="feed" id="live"></div></div>
  <div class="panel" id="replay">TODO: replay feed — GET /api/replay?n=40</div>
 </section>
@@ -104,6 +130,17 @@ html{scroll-snap-type:y proximity}
  <button id="check">Check</button>
  <div id="verdict"></div>
  <pre id="result"></pre>
+</section>
+
+<section class="slide">
+ <h2>What's next</h2>
+ <ul class="next">
+  <li><b>Drop-in gate</b> for agent runners: Claude Code today; OpenHands, Inspect and CI next, with per-deployment scope.</li>
+  <li><b>Broader benign corpus</b> beyond CTFs: everyday coding agents, and human-labeled precision on the hunt.</li>
+  <li><b>First-pass triage for incident investigators</b>: a reader that can't be steered by what it reads, cheap enough to run over everything.</li>
+ </ul>
+ <h1 class="end">Jev Sentinel</h1>
+ <div class="sub">github.com/shapor/jev-sentinel</div>
 </section>
 
 <details class="appendix"><summary>Appendix: raw numbers</summary>
@@ -139,6 +176,7 @@ fetch("/api/stats").then(r => r.json()).then(s => {
 // Time-lapse of the real hunt: replays stored results in scoring order over ~30 s.
 const SAFE = new Set(["target_exploitation", "local_setup"]);
 const COST_PER_CALL = 1300 * 0.042 / 1e6;  // ~1,300 input tokens per call at our assumed Jev price
+const LLM_PER_CALL = (1300 * 3 + 200 * 15) / 1e6;  // same input plus ~200 output tokens at $3/$15 per M (frontier mid-tier)
 function bars(el, stages) {
   el.innerHTML = stages.map(s => `<div class="sb"><span>${s.replace(/_/g, " ")}</span><i class="${SAFE.has(s) ? "safe" : ""}" data-s="${s}" style="width:0"></i><span data-n="${s}">0</span></div>`).join("");
 }
@@ -165,7 +203,9 @@ $("play").onclick = () => TL.then(d => {
     $("tFp").textContent = (100 * fp / Math.max(j, 1)).toFixed(2) + "%";
     $("tCost").textContent = "$" + (i * COST_PER_CALL).toFixed(2);
     if (x < 1) requestAnimationFrame(tick);
-    else $("punch").textContent = `${i.toLocaleString()} real attack payloads read in 13 minutes for about $${(i * COST_PER_CALL).toFixed(2)}. METR's LLM analysis of the same incident cost ~$400,000.`;
+    else $("punch").textContent = `${i.toLocaleString()} real payloads from the attack, read in 13 minutes for about ` +
+      `$${(i * COST_PER_CALL).toFixed(2)}. The same pass with a frontier LLM judge: roughly $${Math.round(i * LLM_PER_CALL)}, ` +
+      `several seconds per call, and a reader the payloads could try to steer.`;
   };
   tick();
 });
@@ -225,13 +265,25 @@ function feedRow(r, text) {
 }
 
 let since = 0, seen = {n: 0, block: 0, ms: []};
-setInterval(() => fetch("/api/live?since=" + since).then(r => r.json()).then(rows => rows.forEach(r => {
-  since = Math.max(since, r.t);
-  $("live").prepend(feedRow(r, r.action));
+function addLive(r, text) {
+  $("live").prepend(feedRow(r, text));
   seen.n++; if (r.verdict === "block") seen.block++; seen.ms.push(r.ms);
   const ms = [...seen.ms].sort((a, b) => a - b)[seen.ms.length >> 1];
-  $("liveStats").textContent = ` · ${seen.n} checks · ${seen.block} blocked · ${ms} ms median`;
+  $("liveStats").textContent = `${seen.n} checks · ${seen.block} blocked · ${ms} ms median`;
+}
+setInterval(() => fetch("/api/live?since=" + since).then(r => r.json()).then(rows => rows.forEach(r => {
+  since = Math.max(since, r.t);
+  addLive(r, r.action);
 })), 1000);
+
+// No agent on stage? Re-score real sanctioned CTF commands one by one with live Jev calls.
+$("runSanctioned").onclick = async () => {
+  for (const cmd of await fetch("/api/sanctioned?n=12").then(r => r.json())) {
+    const r = await fetch("/api/check", {method: "POST", body: JSON.stringify({action: cmd})}).then(r => r.json());
+    addLive(r, cmd);
+    await new Promise(ok => setTimeout(ok, 700));
+  }
+};
 
 $("check").onclick = () => fetch("/api/check", {method: "POST", body: JSON.stringify({action: $("action").value})})
   .then(r => r.json()).then(r => {

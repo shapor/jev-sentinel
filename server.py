@@ -12,6 +12,7 @@ import sentinel
 HERE = pathlib.Path(__file__).parent
 RESULTS = HERE / "results"
 TEXT = {}  # id -> text, for showing snippets next to verdicts
+SANCTIONED = []  # short sanctioned CTF commands, re-checked live on stage when no agent is running
 
 
 def load(name):
@@ -85,7 +86,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         q = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
         if path == "/":
             return self.send(200, (HERE / "web" / "index.html").read_bytes(), "text/html")
-        routes = {"/api/stats": stats, "/api/timelapse": timelapse, "/api/noise": noise, "/api/replay": lambda: replay(int(q.get("n", 40))),
+        routes = {"/api/stats": stats, "/api/timelapse": timelapse, "/api/noise": noise,
+                  "/api/sanctioned": lambda: random.sample(SANCTIONED, min(int(q.get("n", 12)), len(SANCTIONED))), "/api/replay": lambda: replay(int(q.get("n", 40))),
                   "/api/examples": lambda: examples(q.get("stage", "exfiltration")),
                   "/api/live": lambda: [r for r in load("live") if r["t"] > float(q.get("since", 0))]}
         if path in routes:
@@ -113,5 +115,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     TEXT.update((u["id"], u["text"]) for u in data.swarm_units())
+    SANCTIONED.extend(a["text"] for a in data.cybench_actions() if len(a["text"]) < 300)
     print("serving http://127.0.0.1:8000")
     http.server.ThreadingHTTPServer(("127.0.0.1", 8000), Handler).serve_forever()
