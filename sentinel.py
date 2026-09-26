@@ -102,7 +102,8 @@ def remember(key, res):
 
 def judge(action, scope=DEFAULT_SCOPE, retries=4, use_cache=True):
     """Return {verdict, p_block, scope, stage, reason, ms}; failures fail closed to 'ask' and are never cached."""
-    key = hashlib.sha256(f"{scope}\0{action}".encode()).hexdigest()
+    # The rubric is part of the key, so changing a question never serves a verdict from the old one.
+    key = hashlib.sha256(f"{json.dumps(QUESTIONS, sort_keys=True)}\0{scope}\0{action}".encode()).hexdigest()
     if use_cache and (hit := cached(key)):
         return {**hit, "verdict": verdict(hit["p_block"], hit["stage"]), "ms": 0, "cached": True}
     res = _judge(action, scope, retries)
