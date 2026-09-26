@@ -32,15 +32,21 @@ but are in scope, which is exactly where a keyword filter fails.
 
 | | Swarm payloads stopped | Sanctioned actions blocked |
 |---|---|---|
-| Keyword regex | 82% flagged | 26.5% flagged |
-| **Jev Sentinel** | **97% stopped** (blocked or sent to a human) | **0.14% blocked** (2 of 1,456) |
+| Keyword regex | 76.6% flagged | 26.5% flagged |
+| **Jev Sentinel** | **98.3% stopped** (83.8% blocked, 14.5% sent to a human) | **0.14% blocked** (2 of 1,456) |
 
 **The hunt.** We ran the Sentinel over all 53,870 content-bearing units of
 [Swarm Traces](https://swarmtraces.org/), the 80,000+ payloads recovered from the actual Hugging Face attack
-(published 2026-09-25). It labels every unit by stage, which the original authors did not do, and surfaces the few
-units that don't look like attack traffic, relevant to their open question of how much of the corpus is noise.
-The sanctioned CTF agents were labeled "exfiltration" or "egress tunneling" zero times; the swarm tens of thousands
-of times.
+(published 2026-09-25). It took 13 minutes at about 68 units/s. It labels every unit by stage, which the original
+authors did not do. The sanctioned CTF agents were labeled "exfiltration" or "egress tunneling" zero times; the
+swarm 30,000+ times.
+
+**A candidate noise cluster.** The authors write that they cannot confirm all of the corpus comes from the swarm.
+The Sentinel allowed only 892 units (1.7%), and they are not spread evenly: 493 of them sit in a single ID range
+(R0082000–R0083999, where 30% of units are allowed versus about 0.3% elsewhere), and 55% of all allowed units are
+generic "Redirecting…" HTML pages, versus 0% of blocked units. That points to a concentrated block of ordinary
+link-shortener redirect responses mixed into the corpus. This is a lead, not a verdict: it needs a human pass
+against the authors' collection method.
 
 ## Design decisions
 
