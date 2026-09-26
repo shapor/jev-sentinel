@@ -201,9 +201,9 @@ const TL = fetch("/api/timelapse").then(r => r.json()).then(d => { bars($("barsS
 addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") $("play").click(); });
 // The payload field: one cell per swarm unit, row-major in dataset order.
 const FC = $("field").getContext("2d"), COLS = 540, CELL = 3, FILL = {b: "#da3633", a: "#f2cc60", l: "#56d364"};
-function dot(k, v) {
+function dot(k, v, size = CELL) {
   FC.fillStyle = v === "l" ? FILL.l : v === "k" ? FILL.a : FILL.b;
-  FC.fillRect((k % COLS) * CELL, Math.floor(k / COLS) * CELL, CELL, CELL);
+  FC.fillRect((k % COLS) * CELL, Math.floor(k / COLS) * CELL, size, size);
 }
 function clearField(n) {
   FC.canvas.width = COLS * CELL;
@@ -225,7 +225,7 @@ $("live1").onclick = () => TL.then(async d => {
   while (got.length < N) {
     await new Promise(ok => setTimeout(ok, 200));
     const rows = await fetch("/api/livehunt?since=" + got.length).then(r => r.json());
-    for (const u of rows) { dot(pos.get(u[2]), u[0]); cs[u[1]] = (cs[u[1]] || 0) + 1; if (u[0] !== "l") stop++; }
+    for (const u of rows) { dot(pos.get(u[2]), u[0], CELL * 2); cs[u[1]] = (cs[u[1]] || 0) + 1; if (u[0] !== "l") stop++; }
     got = got.concat(rows);
     const secs = (performance.now() - t0) / 1000, ms = got.map(u => u[3]).sort((a, b) => a - b)[got.length >> 1] || 0;
     draw($("barsS"), cs, Math.max(...Object.values(cs), 1)); ticker(got, got.length);
