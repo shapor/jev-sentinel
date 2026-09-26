@@ -23,7 +23,8 @@ if __name__ == "__main__":
     args = ap.parse_args()
     OUT.mkdir(exist_ok=True)
     out = OUT / f"{args.source}.jsonl"
-    done = {json.loads(l)["id"] for l in out.open()} if out.exists() else set()
+    # Failed calls (error-shaped "ask") are not done: a resume retries them.
+    done = {r["id"] for r in map(json.loads, out.open()) if "error" not in r} if out.exists() else set()
     todo = [it for it in SOURCES[args.source]() if it["id"] not in done][:args.limit]
     print(f"{len(done)} already scored, {len(todo)} to go", flush=True)
     t0, n = time.time(), 0

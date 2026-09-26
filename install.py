@@ -9,9 +9,10 @@ Settings are merged into DIR/.claude/settings.local.json; other keys and hooks a
 
 import json
 import pathlib
+import shlex
 import sys
 
-COMMAND = f"python3 {pathlib.Path(__file__).resolve().with_name('hook.py')}"
+COMMAND = f"python3 {shlex.quote(str(pathlib.Path(__file__).resolve().with_name('hook.py')))}"
 HOOKS = {"PreToolUse": COMMAND, "PostToolUse": f"{COMMAND} post"}
 
 
@@ -26,7 +27,10 @@ def edit_settings(project, install):
     for event, command in HOOKS.items():
         entries = settings.setdefault("hooks", {}).setdefault(event, [])
         had |= any(ours(e) for e in entries)
-        entries[:] = [e for e in entries if not ours(e)]
+        # Drop only our handlers; an entry that also holds someone else's hook keeps it.
+        for e in entries:
+            e["hooks"] = [h for h in e.get("hooks", []) if h.get("command") not in HOOKS.values()]
+        entries[:] = [e for e in entries if e.get("hooks")]
         if install:
             entries.append({"matcher": "*", "hooks": [{"type": "command", "command": command}]})
     path.parent.mkdir(parents=True, exist_ok=True)

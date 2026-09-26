@@ -25,8 +25,9 @@ DECISION = {"allow": "allow", "ask": "ask", "block": "deny"}
 
 def scope_for(cwd):
     """The job in the user's words, turned into the framing Jev sees."""
-    f = pathlib.Path(cwd or ".") / ".sentinel-scope"
-    task = os.environ.get("SENTINEL_SCOPE") or (f.read_text().strip() if f.exists() else "")
+    here = pathlib.Path(cwd or ".").resolve()
+    f = next((d / ".sentinel-scope" for d in (here, *here.parents) if (d / ".sentinel-scope").exists()), None)
+    task = os.environ.get("SENTINEL_SCOPE") or (f.read_text().strip() if f else "")
     return f"an AI agent's sanctioned task is: {task}" if task else sentinel.DEFAULT_SCOPE
 
 
@@ -36,8 +37,8 @@ def describe(tool, inp):
 
 
 def kind(action, stage):
-    """What an approval covers: same stage and same program, e.g. ('local_setup', 'pip install')."""
-    return [stage, " ".join(action.split()[:2])]
+    """What an approval covers: exactly this action at this stage. Broader patterns would reuse consent too freely."""
+    return [stage, action]
 
 
 def rows(path):
@@ -60,7 +61,7 @@ def pre(event):
     if res["verdict"] == "ask" and "stage" in res and approved(cwd, action, res["stage"]):
         res.update(verdict="allow", reason=f"{res['reason']} (approved earlier in this project)")
     append(LIVE, {"t": time.time(), "session": event.get("session_id", "manual"), "cwd": cwd,
-                  "task": scope_for(cwd), "tool": event.get("tool_name"), "action": action[:2000], **res})
+                  "tool_use_id": event.get("tool_use_id"), "task": scope_for(cwd), "tool": event.get("tool_name"), "action": action[:2000], **res})
     return {"hookSpecificOutput": {
         "hookEventName": "PreToolUse", "permissionDecision": DECISION[res["verdict"]],
         "permissionDecisionReason": f"Jev Sentinel: {res['verdict']} ({res.get('reason', 'unavailable')}, "
@@ -73,13 +74,14 @@ INBOUND_AT = 0.8
 def post(event):
     """The tool ran. If our last word on it was 'ask', a human said yes. Then check what came back."""
     cwd, action = event.get("cwd"), describe(event.get("tool_name", ""), event.get("tool_input", {}))
+    tid = event.get("tool_use_id")
     last = next((r for r in reversed(rows(LIVE)) if r.get("session") == event.get("session_id", "manual")
-                 and r.get("action") == action[:2000]), None)
+                 and (r.get("tool_use_id") == tid if tid else r.get("action") == action[:2000])), None)
     if last and last["verdict"] == "ask" and "stage" in last:
         append(APPROVALS, {"t": time.time(), "cwd": cwd, "kind": kind(action, last["stage"]), "action": action[:500]})
     output = event.get("tool_response")
     output = output if isinstance(output, str) else json.dumps(output or "")
-    p = sentinel.inbound(output, scope_for(cwd)) if len(output) > 40 else None
+    p = sentinel.inbound(output, scope_for(cwd)) if output.strip() else None
     if p is None or p < INBOUND_AT:
         return {}
     append(LIVE, {"t": time.time(), "session": event.get("session_id", "manual"), "cwd": cwd, "task": scope_for(cwd),

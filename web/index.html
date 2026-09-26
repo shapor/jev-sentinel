@@ -70,6 +70,11 @@ html{scroll-snap-type:y proximity}
 .rlink{color:#58a6ff;font-size:15px;text-decoration:none}
 .appendix{margin:60px 0}.appendix summary{cursor:pointer;color:#8b949e}
 .panel{border:1px dashed #30363d;border-radius:12px;padding:16px;min-height:120px;color:#8b949e;margin-bottom:12px}
+#tl{padding:14px 0}#tl h2{margin:0 0 8px}
+#tl .tiles{margin:6px 0 10px;gap:10px}#tl .tiles div{padding:10px 14px}#tl .tiles b{font-size:34px}
+#ticker{height:118px !important}#ticker div{padding:1px 0 !important;font-size:14px}
+#tl .sb{margin:2px 0;font-size:13px}#tl .sb i{height:13px}#tl .cols h3{margin:0 0 4px;font-size:15px}
+#tl .legend{margin-bottom:8px}#tl .btns{margin-top:10px}#tl .btns button{padding:9px 20px;font-size:17px}
 </style>
 <section class="slide hook">
  <div class="kicker">July 2026 · OpenAI evaluation agents</div>
@@ -93,7 +98,7 @@ html{scroll-snap-type:y proximity}
   <div><b id="tCost">$0.00</b>Jev cost</div>
  </div>
  <div id="status" class="status"></div>
- <canvas id="field" width="1620" height="300"></canvas>
+ <canvas id="field" width="2280" height="220"></canvas>
  <div id="ticker"></div>
  <div class="legend"><i class="lb"></i>blocked <i class="la"></i>sent to a human <i class="lo"></i>allowed · one dot per payload, in dataset order</div>
  <div class="cols">
@@ -244,7 +249,7 @@ const TL = fetch("/api/timelapse").then(r => r.json()).then(d => { bars($("barsS
 addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") $("play").click(); });
 $("action").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("check").click(); });
 // The payload field: one cell per swarm unit, row-major in dataset order.
-const FC = $("field").getContext("2d"), COLS = 540, CELL = 3, FILL = {b: "#da3633", a: "#f2cc60", l: "#56d364"};
+const FC = $("field").getContext("2d"), COLS = 760, CELL = 3, FILL = {b: "#da3633", a: "#f2cc60", l: "#56d364"};
 function dot(k, v, size = CELL) {
   FC.fillStyle = v === "l" ? FILL.l : v === "k" ? FILL.a : FILL.b;
   FC.fillRect((k % COLS) * CELL, Math.floor(k / COLS) * CELL, size, size);

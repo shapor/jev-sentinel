@@ -16,7 +16,8 @@ test:     ## offline tests (Jev mocked)
 	python3 -m unittest -v test_sentinel
 
 check:    ## judge one action: make check A='ls -la'
-	python3 sentinel.py "$(A)"
+	A="$$A" python3 -c 'import json, os, sentinel; print(json.dumps(sentinel.judge(os.environ["A"]), indent=1))'
+check: export A := $(A)
 
 install-hook:  ## gate a Claude Code project: make install-hook DIR=~/proj SCOPE="refactor the billing module"
 	python3 install.py "$(DIR)" "$(SCOPE)"
