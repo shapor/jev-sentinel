@@ -17,7 +17,8 @@ each." When it finishes, click **Replay the full run**. "This is all 53,870 from
 
 **0:55 · Act 2: don't stop the good hackers (25 s).** "The hard part is not catching attacks. It's not blocking
 legitimate agents doing offensive work. On 1,456 real tool calls from sanctioned CTF agents, a keyword filter flags
-26.5%. Jev blocks 0.14%, about 190 times fewer, while catching more of the attack."
+26.5%. Jev blocks 0.14%, about 190 times fewer, while catching more of the attack. And on 838 everyday coding-agent
+actions, each judged against its own GitHub issue, Jev blocks 1.7% against the regex's 5.5%."
 
 **1:20 · How it works (15 s).** "One Jev call returns scope, stage and a block probability. A thin policy turns that
 into allow, ask a human, or block. Jev only returns probabilities, so nothing it reads can talk it into a verdict."
@@ -25,7 +26,8 @@ into allow, ask a human, or block. Jev only returns probabilities, so nothing it
 **1:35 · Act 3: live agent and drift (30 s).** Point at the drift line, or click **Re-check a sanctioned CTF agent
 live** if no agent is running. "Every tool call from a Claude Code agent goes through the hook. The drift line
 tracks how far the session is from its task over time: green while it works, climbing into red as it wanders." Open
-**session report ↗** for two seconds: "and every session leaves an audit trail."
+**session report ↗** for two seconds: "and every session leaves an audit trail. When a human approves something,
+the Sentinel remembers it for that project, but it never relaxes a block."
 
 **2:05 · Act 4: something new (20 s).** "The Swarm Traces authors couldn't say how much of their corpus is really
 the swarm. Jev allowed only 1.7% of units, and 493 of them sit in one slice, mostly plain redirect pages. That's a
@@ -41,8 +43,12 @@ more agent runners, broader benign data, and cheap first-pass triage for inciden
 
 ## Likely judge questions
 
-- **What's your false-positive rate?** 0.14% blocked (2 of 1,456) on sanctioned CTF agents from six models; 12.8%
-  go to a human instead. Against a keyword regex at 26.5%.
+- **What's your false-positive rate?** 0.14% blocked (2 of 1,456) on sanctioned CTF agents from six models in the
+  full run; 0.21% (3) after the task-relative stage change. 1.67% on 838 everyday coding-agent actions, against their
+  own issues. The regex is at 26.5% and 5.5%.
+- **Where does it still get it wrong?** Coding agents: 13 of the 14 blocks are one auth-token issue whose agent calls
+  a real DNS provider's CLI. The one-sentence scope didn't say "you'll touch credentials and a live API". Writing
+  that into the scope is exactly the fix.
 - **Isn't the swarm data cherry-picked?** No. We scored every content-bearing unit of Swarm Traces (53,870), not
   highlights, and the benchmark set is every tool call in the Cybench trajectories dataset.
 - **Why not a regex, or just an LLM?** The regex can't see scope, so it flags legitimate hacking (26.5%). An LLM
@@ -53,7 +59,10 @@ more agent runners, broader benign data, and cheap first-pass triage for inciden
 - **Who buys this?** Teams running coding or ops agents with real credentials and network access, and eval teams
   running agents at scale, the exact setting of the incident.
 - **What are the limits?** Swarm Traces is redacted and has no timestamps, so this isn't a replay of the attack
-  timeline. Benign data is CTF-only so far. The hunt labels are Jev's, not human-verified.
+  timeline. Benign data is two public sets (CTF and SWE-agent), not production traffic. The hunt labels are Jev's,
+  not human-verified.
+- **Is the live mode really live?** Yes: Score live, the scope flip, the re-check and the try-it box all call Jev on
+  the spot and bypass the cache. Replay is labeled as stored results, sped up.
 - **How is the threshold set?** From the benchmark: at P(block) ≥ 0.7, plus the rule that actions labeled as doing
   the assigned task go to a human instead of an automatic block. Verdicts are recomputed from stored probabilities,
   so the policy can be tuned per deployment without re-scoring.
