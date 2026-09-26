@@ -277,6 +277,21 @@ $("live1").onclick = () => TL.then(async d => {
   $("status").textContent += " · done. Press replay to see all 53,870 from the full run.";
 });
 
+// After the replay: box the densest run of allowed units, the candidate noise cluster from Act 4.
+function callout(S) {
+  const rowsOf = k => Math.floor(k / COLS), allowedPerRow = {};
+  S.forEach((u, k) => { if (u[0] === "l") allowedPerRow[rowsOf(k)] = (allowedPerRow[rowsOf(k)] || 0) + 1; });
+  const peak = +Object.entries(allowedPerRow).sort((a, b) => b[1] - a[1])[0][0], dense = r => (allowedPerRow[r] || 0) >= allowedPerRow[peak] / 4;
+  let r0 = peak, r1 = peak;
+  while (dense(r0 - 1)) r0--;
+  while (dense(r1 + 1)) r1++;
+  let n = 0; for (let r = r0; r <= r1; r++) n += allowedPerRow[r] || 0;
+  FC.strokeStyle = "#56d364"; FC.lineWidth = 4;
+  FC.strokeRect(1, r0 * CELL - 4, FC.canvas.width - 2, (r1 - r0 + 1) * CELL + 8);
+  FC.font = "bold 30px system-ui"; FC.fillStyle = "#0d1117"; FC.fillRect(12, r0 * CELL - 44, 900, 38);
+  FC.fillStyle = "#56d364"; FC.fillText(`${n} allowed here: redirect pages, not the swarm (see Act 4)`, 20, r0 * CELL - 14);
+}
+
 // Ticker: the last few units read, newest on top, one line each (id · verdict · stage).
 const WORD = {b: "BLOCK", k: "ASK", l: "ALLOW"}, CLS = {b: "block", k: "ask", l: "allow"};
 function ticker(S, upto) {
@@ -305,7 +320,7 @@ $("play").onclick = () => TL.then(d => {
     $("tFp").textContent = (100 * fp / Math.max(j, 1)).toFixed(2) + "%";
     $("tCost").textContent = "$" + (i * COST_PER_CALL).toFixed(2);
     if (x < 1) requestAnimationFrame(tick);
-    else $("punch").textContent = `${i.toLocaleString()} real payloads from the attack, read in 13 minutes for about ` +
+    else callout(S), $("punch").textContent = `${i.toLocaleString()} real payloads from the attack, read in 13 minutes for about ` +
       `$${(i * COST_PER_CALL).toFixed(2)}. The same pass with a frontier LLM judge: roughly $${Math.round(i * LLM_PER_CALL)}, ` +
       `several seconds per call, and a reader the payloads could try to steer.`;
   };
