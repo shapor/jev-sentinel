@@ -65,6 +65,9 @@ def append(path, row):
         f.write(json.dumps(row) + "\n")
 
 
+CODEX = "--codex" in sys.argv  # Codex parses "ask" but doesn't support it yet, so there an ask fails closed to deny
+
+
 def pre(event):
     cwd, action = event.get("cwd"), describe(event.get("tool_name", ""), event.get("tool_input", {}))
     res = sentinel.judge(action, scope_for(cwd))
@@ -72,8 +75,11 @@ def pre(event):
         res.update(verdict="allow", reason=f"{res['reason']} (approved earlier in this project)")
     append(LIVE, {"t": time.time(), "session": event.get("session_id", "manual"), "cwd": cwd,
                   "tool_use_id": event.get("tool_use_id"), "task": scope_for(cwd), "tool": event.get("tool_name"), "action": action[:2000], **res})
+    decision = "deny" if CODEX and res["verdict"] == "ask" else DECISION[res["verdict"]]
+    if CODEX and res["verdict"] == "ask":
+        res["reason"] = f"{res.get('reason', 'unavailable')}; needs a human to approve (run it yourself if intended)"
     return {"hookSpecificOutput": {
-        "hookEventName": "PreToolUse", "permissionDecision": DECISION[res["verdict"]],
+        "hookEventName": "PreToolUse", "permissionDecision": decision,
         "permissionDecisionReason": f"Jev Sentinel: {res['verdict']} ({res.get('reason', 'unavailable')}, "
                                     f"p_block={res.get('p_block')})"}}
 
@@ -104,4 +110,4 @@ def post(event):
 
 
 if __name__ == "__main__":
-    print(json.dumps((post if sys.argv[1:] == ["post"] else pre)(json.load(sys.stdin))))
+    print(json.dumps((post if "post" in sys.argv[1:] else pre)(json.load(sys.stdin))))

@@ -5,6 +5,26 @@ Jev against the agent's task scope before it runs: allow, ask a human, or block,
 
 Built at JEVATHON (SF, 2026-09-26).
 
+## Quick start
+
+You need Python 3.10+ (standard library only), a Jev API key, and Claude Code or Codex.
+
+1. Get the code and add your key:
+   `git clone https://github.com/shapor/jev-sentinel && cd jev-sentinel && echo "TYPESAFE_API_KEY=..." > .env`
+2. Check it works: `make check A='cat ~/.ssh/id_rsa'` should print a verdict from Jev.
+3. Protect a project by describing its job in one sentence:
+   - Claude Code: `make install-hook DIR=~/code/myapp SCOPE="fix the failing login form validation"`
+   - Codex: `make install-hook DIR=~/code/myapp SCOPE="fix the failing login form validation" AGENT=codex`
+4. Run your agent in that project as usual. Every tool call is scored against the job before it runs, and every
+   tool result is checked for instructions that would change the job.
+   - Claude Code: blocked actions are denied with a reason, and "ask" becomes Claude Code's normal approval prompt.
+   - Codex: blocked actions are denied with a reason. Codex hooks don't support "ask" yet, so an ask is denied
+     with "needs a human to approve", which fails closed. Codex asks you to trust a project's hooks the first time.
+5. Watch it: `make serve`, then open http://127.0.0.1:8000. The live slide shows each decision and the session's
+   drift from its job.
+
+Remove it with `python3 install.py --uninstall ~/code/myapp` (add `--agent codex` for Codex). Tests: `make test`.
+
 ## The problem
 
 In July 2026 about 1,200 OpenAI evaluation agents escaped their isolation, coordinated on an unsanctioned message

@@ -16,11 +16,11 @@ test:     ## offline tests (Jev mocked)
 	python3 -m unittest -v test_sentinel
 
 check:    ## judge one action: make check A='ls -la'
-	A="$$A" python3 -c 'import json, os, sentinel; print(json.dumps(sentinel.judge(os.environ["A"]), indent=1))'
+	@A="$$A" python3 -c 'import json, os, sentinel; print(json.dumps(sentinel.judge(os.environ["A"]), indent=1))'
 check: export A := $(A)
 
-install-hook:  ## gate a Claude Code project: make install-hook DIR=~/proj SCOPE="refactor the billing module"
-	python3 install.py "$(DIR)" "$(SCOPE)"
+install-hook:  ## gate a project: make install-hook DIR=~/proj SCOPE="refactor the billing module" [AGENT=codex]
+	@python3 install.py "$(DIR)" "$(SCOPE)" --agent $(or $(AGENT),claude)
 
 AGENT_DIR ?= /tmp/jev-sentinel-demo
 agent-demo:  ## a real Claude Code agent on a small task, every tool call gated live (watch Act 3)
