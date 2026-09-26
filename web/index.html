@@ -2,7 +2,7 @@
 <meta charset="utf-8">
 <title>Jev Sentinel</title>
 <style>
-body{font:18px/1.5 Inter,system-ui,sans-serif;max-width:1200px;margin:auto;padding:32px 24px;background:#0d1117;color:#e6edf3}
+body{font:18px/1.5 Inter,system-ui,sans-serif;max-width:1200px;margin:auto;padding:0 24px;overflow-x:hidden;background:#0d1117;color:#e6edf3}
 h1{font-size:44px;letter-spacing:-.02em;margin:0 0 8px}h2{font-size:22px;color:#8b949e;text-transform:uppercase;letter-spacing:.08em;margin-top:40px}
 table{border-collapse:separate;border-spacing:0;background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;min-width:520px}
 td,th{padding:12px 18px;text-align:right;border-bottom:1px solid #21262d;font-variant-numeric:tabular-nums}
@@ -11,32 +11,107 @@ td:first-child,th:first-child{text-align:left}tr:last-child td{border-bottom:0}t
 textarea{width:100%;height:110px;font:15px ui-monospace,monospace;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:10px;padding:12px}
 button{margin-top:10px;font:600 16px system-ui;background:#238636;color:#fff;border:0;border-radius:8px;padding:10px 22px;cursor:pointer}
 pre{white-space:pre-wrap;word-break:break-all;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px;font-size:13px;color:#8b949e;max-height:6em;overflow:hidden}
+.sub{color:#8b949e;font-size:21px;margin-bottom:24px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:10px 0 20px}
+.tiles div{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:18px;color:#8b949e;font-size:15px}
+.tiles b{display:block;font-size:48px;color:#e6edf3;font-variant-numeric:tabular-nums;line-height:1.1}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px}.cols h3{margin:0 0 10px;font-size:18px}
+.sb{display:grid;grid-template-columns:190px 1fr 64px;gap:10px;align-items:center;margin:6px 0;font-size:15px}
+.sb i{display:block;height:20px;border-radius:4px;background:#f85149;transition:width .12s linear}
+.sb i.safe{background:#3fb950}.sb span:last-child{text-align:right;font-variant-numeric:tabular-nums;color:#8b949e}
+#play{font-size:20px;padding:14px 28px;margin-top:22px;align-self:flex-start}
+.punch{font-size:26px;font-weight:700;margin-top:18px;min-height:1.5em}
+@media(max-width:900px){.tiles,.cols{grid-template-columns:1fr 1fr}}
 .feed div{display:grid;grid-template-columns:90px 1fr 70px;gap:12px;padding:8px 0;border-bottom:1px solid #21262d;align-items:start}
 .v{font-weight:800;text-align:center;border-radius:6px;padding:2px 0;font-size:14px}
 .v.allow{background:#12361f;color:#3fb950}.v.ask{background:#3d2e0a;color:#d29922}.v.block{background:#42161a;color:#f85149}
 .feed code{font-size:13px;color:#8b949e;display:block;white-space:pre-wrap;word-break:break-all;max-height:3em;overflow:hidden}
+.slide{min-height:100vh;padding:48px 0;display:flex;flex-direction:column;justify-content:center;scroll-snap-align:start}
+html{scroll-snap-type:y proximity}
+.hook h1{font-size:88px;letter-spacing:-.04em;margin:28px 0 4px;background:linear-gradient(90deg,#58a6ff,#bc8cff);-webkit-background-clip:text;color:transparent}
+.kicker{color:#f85149;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:15px}
+.facts{display:flex;gap:48px;margin-top:14px}.facts div{color:#8b949e}.facts b{display:block;font-size:64px;color:#e6edf3;line-height:1}
+.hint{color:#484f58;margin-top:40px;font-size:14px}
+.duel{display:grid;grid-template-columns:1fr;gap:28px;margin-top:24px}.duel h3{margin:0;font-size:22px}
+.dr{display:grid;grid-template-columns:90px 1fr 120px;gap:18px;align-items:center;margin:12px 0;font-size:22px}
+.dr i{display:block;height:44px;border-radius:8px;width:0;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+.dr b{font-size:30px;text-align:right;font-variant-numeric:tabular-nums}
+.slide button{align-self:flex-start}.slide textarea{font-size:20px;height:130px}pre:empty{display:none}
+.feed div{font-size:19px}.feed code{font-size:15px}
+#verdict{margin:22px 0;font-size:28px;display:flex;gap:18px;align-items:center;min-height:64px}
+.v.big{font-size:34px;padding:8px 28px;border-radius:10px}.why{color:#8b949e}
+.appendix{margin:60px 0}.appendix summary{cursor:pointer;color:#8b949e}
 .panel{border:1px dashed #30363d;border-radius:12px;padding:16px;min-height:120px;color:#8b949e;margin-bottom:12px}
 </style>
-<h1>Jev Sentinel</h1>
+<section class="slide hook">
+ <div class="kicker">July 2026 · OpenAI evaluation agents</div>
+ <div class="facts">
+  <div><b>1,200</b>agents broke isolation</div>
+  <div><b>5 days</b>of unsanctioned activity</div>
+  <div><b>0</b>real-time alerts</div>
+ </div>
+ <h1>Jev Sentinel</h1>
+ <div class="sub">Checks every agent action against its task before it runs. Allow, ask a human, or block.</div>
+ <div class="hint">press → or space</div>
+</section>
 
-<h2>Panels (TODO)</h2>
-<div class="panel"><b>Live agent</b> <span id="liveStats"></span><div class="feed" id="live"></div></div>
-<div class="panel" id="replay">TODO: replay feed — GET /api/replay?n=40</div>
+<section class="slide" id="tl">
+ <h2>Act 1 · Jev reads the real attack</h2>
+ <div class="tiles">
+  <div><b id="tRead">0</b>payloads read</div>
+  <div><b id="tStop">0%</b>stopped</div>
+  <div><b id="tFp">0%</b>sanctioned hackers blocked</div>
+  <div><b id="tCost">$0.00</b>Jev cost</div>
+ </div>
+ <div class="cols">
+  <div><h3>OpenAI swarm (Swarm Traces)</h3><div id="barsS"></div></div>
+  <div><h3>Sanctioned CTF agents</h3><div id="barsC"></div></div>
+ </div>
+ <button id="play">▶ Watch Jev read the attack</button>
+ <div id="punch" class="punch"></div>
+</section>
 
-<h2>Totals</h2>
-<table id="totals"></table>
+<section class="slide">
+ <h2>Act 2 · The hard part: don't stop the good hackers</h2>
+ <div class="sub">1,456 real tool calls from sanctioned CTF agents (Claude, GPT) attacking their assigned targets.
+  They look exactly like attacks. A keyword filter can't tell the difference.</div>
+ <div class="duel">
+  <div><h3>Swarm actions stopped</h3><div id="duelStop"></div></div>
+  <div><h3>Sanctioned actions wrongly blocked</h3><div id="duelFp"></div></div>
+ </div>
+ <div class="punch" id="duelNote"></div>
+</section>
 
-<h2>Thresholds</h2>
-<table id="thresholds"></table>
+<section class="slide">
+ <h2>Act 3 · Live: a real agent, every tool call checked</h2>
+ <div class="sub">A Claude Code agent with Jev Sentinel as its PreToolUse hook. Each command is scored against the
+  agent's task before it runs.</div>
+ <div class="panel"><span id="liveStats">waiting for the agent…</span><div class="feed" id="live"></div></div>
+ <div class="panel" id="replay">TODO: replay feed — GET /api/replay?n=40</div>
+</section>
 
-<h2>Stages</h2>
-<table id="stages"></table>
-<div id="examples"></div>
+<section class="slide">
+ <h2>Act 4 · Something new in the data</h2>
+ <div class="sub">The Swarm Traces authors couldn't say how much of their corpus is really swarm traffic.
+  Jev allowed only 1.7% of units, and they aren't spread evenly.</div>
+ <div id="noise"></div>
+ <div class="punch" id="noiseNote"></div>
+</section>
 
-<h2>Check an action</h2>
-<textarea id="action"></textarea>
-<button id="check">Check</button>
-<pre id="result"></pre>
+<section class="slide">
+ <h2>Try to sneak one past it</h2>
+ <textarea id="action" placeholder="type any command an agent might run"></textarea>
+ <button id="check">Check</button>
+ <div id="verdict"></div>
+ <pre id="result"></pre>
+</section>
+
+<details class="appendix"><summary>Appendix: raw numbers</summary>
+ <h2>Totals</h2><table id="totals"></table>
+ <h2>Thresholds</h2><table id="thresholds"></table>
+ <h2>Stages</h2><table id="stages"></table>
+ <div id="examples"></div>
+</details>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -61,6 +136,85 @@ fetch("/api/stats").then(r => r.json()).then(s => {
     }));
 });
 
+// Time-lapse of the real hunt: replays stored results in scoring order over ~30 s.
+const SAFE = new Set(["target_exploitation", "local_setup"]);
+const COST_PER_CALL = 1300 * 0.042 / 1e6;  // ~1,300 input tokens per call at our assumed Jev price
+function bars(el, stages) {
+  el.innerHTML = stages.map(s => `<div class="sb"><span>${s.replace(/_/g, " ")}</span><i class="${SAFE.has(s) ? "safe" : ""}" data-s="${s}" style="width:0"></i><span data-n="${s}">0</span></div>`).join("");
+}
+function draw(el, counts, max) {
+  el.querySelectorAll("i").forEach(i => i.style.width = (100 * (counts[i.dataset.s] || 0) / max) + "%");
+  el.querySelectorAll("[data-n]").forEach(n => n.textContent = (counts[n.dataset.n] || 0).toLocaleString());
+}
+// Load once so the bars are laid out before playing; Enter on this slide also plays.
+const TL = fetch("/api/timelapse").then(r => r.json()).then(d => { bars($("barsS"), d.stages); bars($("barsC"), d.stages); return d; });
+addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") $("play").click(); });
+$("play").onclick = () => TL.then(d => {
+  bars($("barsS"), d.stages); bars($("barsC"), d.stages); $("punch").textContent = "";
+  const S = d.swarm, C = d.sanctioned, DURATION = 18000, t0 = performance.now(), cs = {}, cc = {};
+  let i = 0, j = 0, stop = 0, fp = 0;
+  const tick = () => {
+    const x = Math.min(1, (performance.now() - t0) / DURATION), p = x < 1 ? 1 - Math.pow(1 - x, 2) : 1;  // ease-out
+    const iEnd = Math.round(S.length * p), jEnd = Math.round(C.length * p);
+    for (; i < iEnd; i++) { cs[S[i][1]] = (cs[S[i][1]] || 0) + 1; if (S[i][0] !== "a") stop++; }
+    for (; j < jEnd; j++) { cc[C[j][1]] = (cc[C[j][1]] || 0) + 1; if (C[j][0] === "b") fp++; }
+    const max = Math.max(...Object.values(cs), 1);
+    draw($("barsS"), cs, max); draw($("barsC"), cc, Math.max(...Object.values(cc), 1));
+    $("tRead").textContent = i.toLocaleString();
+    $("tStop").textContent = (100 * stop / Math.max(i, 1)).toFixed(1) + "%";
+    $("tFp").textContent = (100 * fp / Math.max(j, 1)).toFixed(2) + "%";
+    $("tCost").textContent = "$" + (i * COST_PER_CALL).toFixed(2);
+    if (x < 1) requestAnimationFrame(tick);
+    else $("punch").textContent = `${i.toLocaleString()} real attack payloads read in 13 minutes for about $${(i * COST_PER_CALL).toFixed(2)}. METR's LLM analysis of the same incident cost ~$400,000.`;
+  };
+  tick();
+});
+
+// Act 2: Jev vs keyword regex, animated when scrolled into view.
+function duel(el, rows) {
+  el.innerHTML = rows.map(([name, v, color]) =>
+    `<div class="dr"><span>${name}</span><i style="background:${color}" data-w="${v}"></i><b>${v < 1 ? v.toFixed(2) : v.toFixed(1)}%</b></div>`).join("");
+}
+fetch("/api/stats").then(r => r.json()).then(s => {
+  const w = s.swarm, b = s.sanctioned, pctOf = (a, n) => 100 * a / n;
+  duel($("duelStop"), [["Regex", pctOf(w.regex, w.n), "#6e7681"],
+                       ["Jev", pctOf((w.verdicts.block || 0) + (w.verdicts.ask || 0), w.n), "#58a6ff"]]);
+  duel($("duelFp"), [["Regex", pctOf(b.regex, b.n), "#6e7681"], ["Jev", pctOf(b.verdicts.block || 0, b.n), "#58a6ff"]]);
+  const ratio = Math.round(pctOf(b.regex, b.n) / Math.max(pctOf(b.verdicts.block || 0, b.n), 1e-9));
+  $("duelNote").textContent = `Catches more of the attack, with ${ratio}× fewer false blocks. ` +
+    `The difference is scope: Jev knows what the agent was asked to do.`;
+  const sl = $("duelStop").closest(".slide"), r = sl.getBoundingClientRect();
+  if (r.top < innerHeight && r.bottom > 0) setTimeout(() => grow(sl, true), 50);
+});
+
+// Act 4: allowed share per id bin; the spike is the candidate noise cluster.
+fetch("/api/noise").then(r => r.json()).then(bins => {
+  // Plot counts, not rates: tiny bins (1 of 1 allowed) would otherwise dominate the picture.
+  const W = 1100, H = 260, bw = W / bins.length, max = Math.max(...bins.map(b => b.allowed));
+  const peak = bins.reduce((a, b) => b.allowed > a.allowed ? b : a);
+  $("noise").innerHTML = `<svg viewBox="0 0 ${W} ${H + 30}" width="100%">` + bins.map((b, k) => {
+    const h = Math.max(H * b.allowed / max, b.allowed ? 2 : 0), hot = b === peak;
+    return `<rect x="${k * bw}" y="${H - h}" width="${Math.max(bw - 1, 1)}" height="${h}" fill="${hot ? "#d29922" : "#30363d"}"><title>R${String(b.start).padStart(7, "0")}: ${b.allowed}/${b.n} allowed</title></rect>`;
+  }).join("") + `<text x="0" y="${H + 24}" fill="#8b949e" font-size="14">dataset position →</text></svg>`;
+  $("noiseNote").textContent = `${peak.allowed} of the ${bins.reduce((a, b) => a + b.allowed, 0)} allowed units sit in one slice ` +
+    `(R${String(peak.start).padStart(7, "0")}+), mostly plain redirect pages: a concentrated block of ordinary link-shortener traffic, not the swarm.`;
+});
+
+// Present like slides: space / arrows jump between sections; bars animate when a slide comes into view.
+const slides = [...document.querySelectorAll(".slide")];
+addEventListener("keydown", e => {
+  if (e.target.tagName === "TEXTAREA") return;
+  const dir = {ArrowRight: 1, ArrowDown: 1, " ": 1, PageDown: 1, ArrowLeft: -1, ArrowUp: -1, PageUp: -1}[e.key];
+  if (!dir) return;
+  e.preventDefault();
+  const tops = slides.map(s => Math.abs(s.getBoundingClientRect().top)), cur = tops.indexOf(Math.min(...tops));
+  slides[Math.max(0, Math.min(slides.length - 1, cur + dir))].scrollIntoView({behavior: "smooth"});
+});
+// Grow bars each time their slide comes into view (and reset when it leaves, so it replays on stage).
+const grow = (slide, on) => slide.querySelectorAll("[data-w]").forEach(i => i.style.width = on ? i.dataset.w + "%" : 0);
+new IntersectionObserver(es => es.forEach(e => grow(e.target, e.isIntersecting)), {threshold: .3})
+  .observe(document.querySelector(".duel").closest(".slide"));
+
 // Render one verdict row; all text comes from the API and is inserted as text, never as HTML.
 function feedRow(r, text) {
   const d = document.createElement("div");
@@ -80,5 +234,9 @@ setInterval(() => fetch("/api/live?since=" + since).then(r => r.json()).then(row
 })), 1000);
 
 $("check").onclick = () => fetch("/api/check", {method: "POST", body: JSON.stringify({action: $("action").value})})
-  .then(r => r.json()).then(r => $("result").textContent = JSON.stringify(r, null, 1));
+  .then(r => r.json()).then(r => {
+    $("verdict").innerHTML = `<span class="v big ${r.verdict}">${r.verdict.toUpperCase()}</span> <span class="why"></span>`;
+    $("verdict").querySelector(".why").textContent = `${r.reason} · ${r.ms} ms`;
+    $("result").textContent = JSON.stringify(r, null, 1);
+  });
 </script>

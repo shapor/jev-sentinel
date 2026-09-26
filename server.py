@@ -52,6 +52,22 @@ def examples(stage, n=6):
     return [{**r, "snippet": snippet(r["id"])} for r in rows[:n]]
 
 
+def noise(width=2000):
+    """Share of units Jev allowed, per bin of dataset ids: a spike marks traffic that doesn't look like the attack."""
+    bins = collections.defaultdict(lambda: [0, 0])
+    for r in load("swarm"):
+        b = bins[int(r["id"][1:]) // width]
+        b[0] += 1
+        b[1] += r["verdict"] == "allow"
+    return [{"start": k * width, "n": n, "allowed": a} for k, (n, a) in sorted(bins.items())]
+
+
+def timelapse():
+    """Compact per-unit [verdict, stage] in scoring order, for animating the hunt; plus the sanctioned set."""
+    pack = lambda rows: [[r["verdict"][0], r.get("stage", "")] for r in rows]
+    return {"swarm": pack(load("swarm")), "sanctioned": pack(load("cybench")), "stages": list(sentinel.STAGES)}
+
+
 def replay(n=40, seed=11):
     """A shuffled mix across stages, weighted to show breadth, for the right-hand demo panel."""
     rng, rows = random.Random(seed), load("swarm")
@@ -69,7 +85,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         q = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
         if path == "/":
             return self.send(200, (HERE / "web" / "index.html").read_bytes(), "text/html")
-        routes = {"/api/stats": stats, "/api/replay": lambda: replay(int(q.get("n", 40))),
+        routes = {"/api/stats": stats, "/api/timelapse": timelapse, "/api/noise": noise, "/api/replay": lambda: replay(int(q.get("n", 40))),
                   "/api/examples": lambda: examples(q.get("stage", "exfiltration")),
                   "/api/live": lambda: [r for r in load("live") if r["t"] > float(q.get("since", 0))]}
         if path in routes:
