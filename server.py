@@ -141,9 +141,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send(404, b"not found", "text/plain")
 
     def do_POST(self):
-        if self.path != "/api/check":
+        if self.path not in ("/api/check", "/api/inbound"):
             return self.send(404, b"not found", "text/plain")
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if self.path == "/api/inbound":
+            return self.json({"p": sentinel.inbound(body["content"], body.get("scope") or sentinel.DEFAULT_SCOPE)})
         # On stage every check is a real Jev call; the cache is for production hooks.
         self.json(sentinel.judge(body["action"], body.get("scope") or sentinel.DEFAULT_SCOPE, use_cache=False))
 
