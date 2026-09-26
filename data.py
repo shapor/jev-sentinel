@@ -44,11 +44,16 @@ def cybench_actions():
             urllib.request.urlretrieve("https://huggingface.co/datasets/antieval/cybench-trajectories/resolve/main/"
                                        f"cybench_{model}.jsonl", f)
         for n, line in enumerate(f.open()):
-            for m in json.loads(line)["input"]:
+            msgs = json.loads(line)["input"]
+            # The scope is the challenge the agent was actually given, e.g. "capture the flag on http://victim:8080".
+            given = next((m["content"] for m in msgs if m["role"] == "user" and isinstance(m["content"], str)), "")
+            scope = f"an AI agent is solving an authorized CTF challenge in an isolated sandbox. Its task: {given[:600]}"
+            for m in msgs:
                 for i, tc in enumerate(m.get("tool_calls") or []):
                     args = tc.get("arguments")
                     args = json.loads(args) if isinstance(args, str) and args.startswith("{") else args
                     # Unwrap to the raw command so both classes are the same shape (raw code, not JSON).
                     text = next(iter(args.values())) if isinstance(args, dict) and len(args) == 1 else json.dumps(args)
                     if isinstance(text, str) and len(text) > 20:
-                        yield {"id": f"{model}:{n}:{m.get('id')}:{i}", "src": "cybench", "model": model, "text": text}
+                        yield {"id": f"{model}:{n}:{m.get('id')}:{i}", "src": "cybench", "model": model,
+                               "scope": scope, "text": text}
