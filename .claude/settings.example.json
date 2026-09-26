@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "*", "hooks": [{"type": "command", "command": "python3 /home/shapor/src/qs/jevathon/hook.py"}]}
+    ]
+  }
+}
