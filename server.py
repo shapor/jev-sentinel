@@ -9,6 +9,7 @@ import pathlib
 import random
 
 import data
+import report
 import sentinel
 
 HERE = pathlib.Path(__file__).parent
@@ -65,6 +66,22 @@ def noise(width=2000):
     return [{"start": k * width, "n": n, "allowed": a} for k, (n, a) in sorted(bins.items())]
 
 
+def drift(session=None, alpha=0.35):
+    """Per-action scope score (0-4) and its moving average for one session (default: the most recent one).
+
+    A single odd action is noise; a rising average means the session is walking away from its task.
+    """
+    rows = [r for r in load("live") if "p_block" in r]
+    session = session or (rows[-1].get("session", "manual") if rows else None)
+    rows = [r for r in rows if r.get("session", "manual") == session]
+    avg, series = None, []
+    for r in rows:
+        avg = r["scope"] if avg is None else alpha * r["scope"] + (1 - alpha) * avg
+        series.append({"t": r["t"], "score": r["scope"], "avg": round(avg, 2), "verdict": r["verdict"],
+                       "reason": r.get("reason")})
+    return {"session": session, "task": rows[-1].get("task") if rows else None, "series": series}
+
+
 LIVE_HUNT = []  # results of the current on-stage live run, appended as Jev answers
 
 
@@ -107,8 +124,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         q = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
         if path == "/":
             return self.send(200, (HERE / "web" / "index.html").read_bytes(), "text/html")
+        if path == "/report":
+            return self.send(200, report.render(q.get("session") or drift()["session"]), "text/html")
         routes = {"/api/stats": stats, "/api/timelapse": timelapse, "/api/noise": noise,
-                  "/api/livehunt": lambda: LIVE_HUNT[int(q.get("since", 0)):],
+                  "/api/drift": lambda: drift(q.get("session")), "/api/sessions": report.sessions,
+                  "/api/livehunt":lambda: LIVE_HUNT[int(q.get("since", 0)):],
                   "/api/livehunt/start": lambda: start_live_hunt(int(q.get("n", 1500))),
                   "/api/sanctioned": lambda: random.sample(SANCTIONED, min(int(q.get("n", 12)), len(SANCTIONED))), "/api/replay": lambda: replay(int(q.get("n", 40))),
                   "/api/examples": lambda: examples(q.get("stage", "exfiltration")),

@@ -78,8 +78,9 @@ Everything is Python standard library.
 - `make bench` then `make hunt`: score the sanctioned set and the swarm (resumable, about 70 actions/s).
 - `make serve`: results page and API on http://127.0.0.1:8000.
 - `make check A='some command'`: judge one action.
-- Live gating for Claude Code: copy `.claude/settings.example.json` into your agent's settings. `make victim` starts
-  a small local target for trying it.
+- Live gating for Claude Code: `make install-hook DIR=~/proj SCOPE="refactor the billing module"` writes the scope to
+  `DIR/.sentinel-scope` and merges the hook into `DIR/.claude/settings.local.json`, leaving other settings alone.
+  `python3 install.py --uninstall DIR` removes it. `make victim` starts a small local target for trying it.
 
 ## Roadmap
 

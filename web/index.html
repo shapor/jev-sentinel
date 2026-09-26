@@ -61,6 +61,10 @@ html{scroll-snap-type:y proximity}
 .flip>div{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:22px;min-height:220px}
 .task{font-size:21px;font-weight:600;margin-bottom:18px}.verdictBox{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
 .task[contenteditable]{outline:none;border-bottom:1px dashed #30363d}
+.driftbox{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:14px 16px;margin:10px 0 14px}
+.dhead{display:flex;gap:10px;align-items:center;margin-bottom:6px}.dnow{margin-left:auto;font-weight:800;padding:2px 12px;border-radius:6px}
+.dnow.allow{background:#12361f;color:#56d364}.dnow.ask{background:#3d2e0a;color:#f2cc60}.dnow.block{background:#42161a;color:#f85149}
+.rlink{color:#58a6ff;font-size:15px;text-decoration:none}
 .appendix{margin:60px 0}.appendix summary{cursor:pointer;color:#8b949e}
 .panel{border:1px dashed #30363d;border-radius:12px;padding:16px;min-height:120px;color:#8b949e;margin-bottom:12px}
 </style>
@@ -127,6 +131,8 @@ html{scroll-snap-type:y proximity}
  <h2>Act 3 · Live: a real agent, every tool call checked</h2>
  <div class="sub">A Claude Code agent with Jev Sentinel as its PreToolUse hook. Each command is scored against the
   agent's task before it runs.</div>
+ <div class="driftbox"><div class="dhead"><b>Session drift</b> <span id="taskLine" class="why"></span><span id="driftNow" class="dnow"></span><a href="/report" target="_blank" class="rlink">session report ↗</a></div>
+  <svg id="driftSvg" viewBox="0 0 1000 160" preserveAspectRatio="none" width="100%" height="160"></svg></div>
  <button id="runSanctioned">▶ Re-check a sanctioned CTF agent live</button>
  <div class="panel"><span id="liveStats">waiting for the agent…</span><div class="feed" id="live"></div></div>
  <div class="panel" id="replay">TODO: replay feed — GET /api/replay?n=40</div>
@@ -364,6 +370,22 @@ setInterval(() => fetch("/api/live?since=" + since).then(r => r.json()).then(row
   since = Math.max(since, r.t);
   addLive(r, r.action);
 })), 1000);
+
+// Drift: how far the session is from its task, per action (dots) and as a moving average (line). 0 = on task, 4 = far off.
+const DOT = {allow: "#56d364", ask: "#f2cc60", block: "#da3633"};
+function drawDrift(d) {
+  const s = d.series.slice(-60), W = 1000, H = 160, y = v => H - 8 - (H - 16) * v / 4, x = k => s.length < 2 ? W / 2 : 10 + (W - 20) * k / (s.length - 1);
+  const band = `<rect x="0" y="${y(4)}" width="${W}" height="${y(2.5) - y(4)}" fill="#da363318"/>` +
+               `<text x="${W - 8}" y="${y(4) + 16}" fill="#da3633" font-size="14" text-anchor="end">off task</text>`;
+  const line = s.map((p, k) => `${k ? "L" : "M"}${x(k)},${y(p.avg)}`).join("");
+  $("driftSvg").innerHTML = band + `<path d="${line}" fill="none" stroke="#58a6ff" stroke-width="3"/>` +
+    s.map((p, k) => `<circle cx="${x(k)}" cy="${y(p.score)}" r="5" fill="${DOT[p.verdict]}"/>`).join("");
+  $("taskLine").textContent = d.task ? "· " + d.task.replace(/^an AI agent's sanctioned task is:? ?/i, "") : "";
+  const now = s.length ? s[s.length - 1].avg : 0;
+  $("driftNow").textContent = s.length ? (now >= 2.5 ? "DRIFTING" : now >= 1.5 ? "WATCH" : "ON TASK") : "";
+  $("driftNow").className = "dnow " + (now >= 2.5 ? "block" : now >= 1.5 ? "ask" : "allow");
+}
+setInterval(() => fetch("/api/drift").then(r => r.json()).then(drawDrift), 1500);
 
 // No agent on stage? Re-score real sanctioned CTF commands one by one with live Jev calls.
 $("runSanctioned").onclick = async () => {
