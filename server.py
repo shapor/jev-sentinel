@@ -93,7 +93,7 @@ def start_live_hunt(n):
     def run():
         code = {"block": "b", "ask": "k", "allow": "l"}
         with concurrent.futures.ThreadPoolExecutor(16) as ex:
-            for i, res in zip(ids, ex.map(lambda i: sentinel.judge(TEXT[i]), ids)):
+            for i, res in zip(ids, ex.map(lambda i: sentinel.judge(TEXT[i], use_cache=False), ids)):
                 LIVE_HUNT.append([code[res["verdict"]], res.get("stage", ""), i, res["ms"]])
 
     threading.Thread(target=run, daemon=True).start()
@@ -141,7 +141,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path != "/api/check":
             return self.send(404, b"not found", "text/plain")
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        self.json(sentinel.judge(body["action"], body.get("scope") or sentinel.DEFAULT_SCOPE))
+        # On stage every check is a real Jev call; the cache is for production hooks.
+        self.json(sentinel.judge(body["action"], body.get("scope") or sentinel.DEFAULT_SCOPE, use_cache=False))
 
     def json(self, obj):
         self.send(200, json.dumps(obj).encode(), "application/json")

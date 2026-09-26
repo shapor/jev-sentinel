@@ -4,6 +4,7 @@ Jev is a classification-only model. It returns calibrated probabilities and cann
 content it reads (including hostile agent payloads) cannot talk it into a verdict or hijack it.
 """
 
+import hashlib
 import json
 import os
 import pathlib
@@ -76,8 +77,41 @@ def state(action, scope=DEFAULT_SCOPE):
             f"Agent action (partially redacted; [..] marks redactions):\n{action[:4000]}")
 
 
-def judge(action, scope=DEFAULT_SCOPE, retries=4):
-    """Return {verdict, p_block, scope, stage, reason, ms} or {verdict: 'error'}; failures fail closed to 'ask'."""
+CACHE = pathlib.Path(__file__).with_name("results") / "cache.jsonl"
+_cache = None
+
+
+def cached(key):
+    """Agents repeat themselves (ls, pytest, git status); a repeat of the same action under the same task is free."""
+    global _cache
+    if _cache is None:
+        _cache = {}
+        if CACHE.exists():
+            for line in CACHE.open():
+                k, v = json.loads(line)
+                _cache[k] = v
+    return _cache.get(key)
+
+
+def remember(key, res):
+    _cache[key] = res
+    CACHE.parent.mkdir(exist_ok=True)
+    with CACHE.open("a") as f:
+        f.write(json.dumps([key, res]) + "\n")
+
+
+def judge(action, scope=DEFAULT_SCOPE, retries=4, use_cache=True):
+    """Return {verdict, p_block, scope, stage, reason, ms}; failures fail closed to 'ask' and are never cached."""
+    key = hashlib.sha256(f"{scope}\0{action}".encode()).hexdigest()
+    if use_cache and (hit := cached(key)):
+        return {**hit, "verdict": verdict(hit["p_block"], hit["stage"]), "ms": 0, "cached": True}
+    res = _judge(action, scope, retries)
+    if use_cache and "error" not in res:
+        remember(key, res)
+    return res
+
+
+def _judge(action, scope, retries):
     body = json.dumps({"model": "jev-latest", "state": state(action, scope), "questions": QUESTIONS}).encode()
     req = urllib.request.Request(API, data=body, headers={"Authorization": f"Bearer {KEY}",
                                                           "Content-Type": "application/json"})
