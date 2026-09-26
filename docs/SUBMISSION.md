@@ -27,7 +27,7 @@ and can be steered by the hostile text it reads.
   own commands.
 - Engineering: 10 unit tests with Jev mocked (`make test`), a Dockerfile, standard-library Python only.
 
-**How we use Jev, and why Jev.** It's an independent auditor rather than the agent's model grading itself (the self-monitoring trap METR hit), and it never refuses to look: it scored all 53,870 real attack payloads with 0 refusals and 0 errors, where a safety-tuned LLM judge can balk at cyber content. Each check is a single Jev call with an anchored 5-level scope rubric, an 8-way
+**How we use Jev, and why Jev.** It's an independent auditor rather than the agent's model grading itself (the self-monitoring trap METR hit), and it's a pure classifier with no refusal layer. A monitor has to read the worst content without flinching, and a safety-tuned frontier model can refuse the very check it's asked to run; Jev scored all 53,870 real attack payloads with 0 refusals and 0 errors. Each check is a single Jev call with an anchored 5-level scope rubric, an 8-way
 stage choice and a block probability. Jev fits because it's fast enough to gate every action (about 0.23 s median,
 about 70 checks/s from a laptop), cheap enough to run on everything, and can't write prose, so nothing it reads can
 talk it into a verdict.
