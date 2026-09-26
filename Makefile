@@ -15,9 +15,10 @@ victim:   ## local vulnerable target for the live agent on http://127.0.0.1:8080
 test:     ## offline tests (Jev mocked)
 	python3 -m unittest -v test_sentinel
 
-check:    ## judge one action: make check A='ls -la'
-	@A="$$A" python3 -c 'import json, os, sentinel; print(json.dumps(sentinel.judge(os.environ["A"]), indent=1))'
+check:    ## judge one action: make check A='cat ~/.ssh/id_rsa' SCOPE='fix the login bug'
+	@A="$$A" S="$$S" python3 -c 'import json, os, sentinel; s = os.environ.get("S"); print(json.dumps(sentinel.judge(os.environ["A"], f"an AI agent'"'"'s sanctioned task is: {s}" if s else sentinel.DEFAULT_SCOPE), indent=1))'
 check: export A := $(A)
+check: export S := $(SCOPE)
 
 install-hook:  ## gate a project: make install-hook DIR=~/proj SCOPE="refactor the billing module" [AGENT=codex]
 	@python3 install.py "$(DIR)" "$(SCOPE)" --agent $(or $(AGENT),claude)

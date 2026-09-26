@@ -11,7 +11,7 @@ You need Python 3.10+ (standard library only), a Jev API key, and Claude Code or
 
 1. Get the code and add your key:
    `git clone https://github.com/shapor/jev-sentinel && cd jev-sentinel && echo "TYPESAFE_API_KEY=..." > .env`
-2. Check it works: `make check A='cat ~/.ssh/id_rsa'` should print a verdict from Jev.
+2. Check it works: `make check A='cat ~/.ssh/id_rsa' SCOPE='fix the login form validation'` should print a block from Jev.
 3. Protect a project by describing its job in one sentence:
    - Claude Code: `make install-hook DIR=~/code/myapp SCOPE="fix the failing login form validation"`
    - Codex: `make install-hook DIR=~/code/myapp SCOPE="fix the failing login form validation" AGENT=codex`
