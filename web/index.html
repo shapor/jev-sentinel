@@ -19,7 +19,9 @@ pre{white-space:pre-wrap;word-break:break-all;background:#161b22;border:1px soli
 .sb{display:grid;grid-template-columns:190px 1fr 64px;gap:10px;align-items:center;margin:6px 0;font-size:15px}
 .sb i{display:block;height:20px;border-radius:4px;background:#f85149;transition:width .12s linear}
 .sb i.safe{background:#3fb950}.sb span:last-child{text-align:right;font-variant-numeric:tabular-nums;color:#8b949e}
-#play{font-size:20px;padding:14px 28px;margin-top:22px;align-self:flex-start}
+.status{color:#f85149;font-weight:700;font-size:18px;min-height:1.6em;margin-bottom:6px}
+.btns{display:flex;gap:14px;margin-top:22px}.btns button{font-size:20px;padding:14px 28px;margin:0}
+#live1{background:#da3633}.ghost{background:#21262d !important;border:1px solid #30363d !important}
 .punch{font-size:26px;font-weight:700;margin-top:18px;min-height:1.5em}
 @media(max-width:900px){.tiles,.cols{grid-template-columns:1fr 1fr}}
 .feed div{display:grid;grid-template-columns:90px 1fr 70px;gap:12px;padding:8px 0;border-bottom:1px solid #21262d;align-items:start}
@@ -78,14 +80,15 @@ html{scroll-snap-type:y proximity}
   <div><b id="tFp">0%</b>sanctioned hackers blocked</div>
   <div><b id="tCost">$0.00</b>Jev cost</div>
  </div>
- <canvas id="field" width="1440" height="300"></canvas>
+ <div id="status" class="status"></div>
+ <canvas id="field" width="1620" height="300"></canvas>
  <div id="ticker"></div>
  <div class="legend"><i class="lb"></i>blocked <i class="la"></i>sent to a human <i class="lo"></i>allowed · one dot per payload, in dataset order</div>
  <div class="cols">
   <div><h3>OpenAI swarm (Swarm Traces)</h3><div id="barsS"></div></div>
   <div><h3>Sanctioned CTF agents</h3><div id="barsC"></div></div>
  </div>
- <button id="play">▶ Watch Jev read the attack</button>
+ <div class="btns"><button id="live1">● Score live with Jev</button><button id="play" class="ghost">▶ Replay the full run (sped up)</button></div>
  <div id="punch" class="punch"></div>
 </section>
 
@@ -203,11 +206,36 @@ function dot(k, v) {
   FC.fillRect((k % COLS) * CELL, Math.floor(k / COLS) * CELL, CELL, CELL);
 }
 function clearField(n) {
+  FC.canvas.width = COLS * CELL;
   FC.canvas.height = Math.ceil(n / COLS) * CELL;
-  FC.fillStyle = "#161b22";
-  for (let k = 0; k < n; k++) FC.fillRect((k % COLS) * CELL, Math.floor(k / COLS) * CELL, CELL - 1, CELL - 1);
+  FC.fillStyle = "#1c2129";
+  FC.fillRect(0, 0, FC.canvas.width, FC.canvas.height);
 }
 TL.then(d => clearField(d.swarm.length));
+
+// Live mode: real Jev calls right now on a random sample, each dot landing at its true dataset position.
+$("live1").onclick = () => TL.then(async d => {
+  const pos = new Map(d.swarm.map((u, k) => [u[2], k])), N = 1500, cs = {}, t0 = performance.now();
+  clearField(d.swarm.length); bars($("barsS"), d.stages); bars($("barsC"), d.stages); $("punch").textContent = "";
+  const cc = {}; d.sanctioned.forEach(u => cc[u[1]] = (cc[u[1]] || 0) + 1);
+  draw($("barsC"), cc, Math.max(...Object.values(cc)));
+  $("tFp").textContent = (100 * d.sanctioned.filter(u => u[0] === "b").length / d.sanctioned.length).toFixed(2) + "%";
+  await fetch("/api/livehunt/start?n=" + N);
+  let got = [], stop = 0;
+  while (got.length < N) {
+    await new Promise(ok => setTimeout(ok, 200));
+    const rows = await fetch("/api/livehunt?since=" + got.length).then(r => r.json());
+    for (const u of rows) { dot(pos.get(u[2]), u[0]); cs[u[1]] = (cs[u[1]] || 0) + 1; if (u[0] !== "l") stop++; }
+    got = got.concat(rows);
+    const secs = (performance.now() - t0) / 1000, ms = got.map(u => u[3]).sort((a, b) => a - b)[got.length >> 1] || 0;
+    draw($("barsS"), cs, Math.max(...Object.values(cs), 1)); ticker(got, got.length);
+    $("tRead").textContent = got.length.toLocaleString();
+    $("tStop").textContent = (100 * stop / Math.max(got.length, 1)).toFixed(1) + "%";
+    $("tCost").textContent = "$" + (got.length * COST_PER_CALL).toFixed(3);
+    $("status").textContent = `● LIVE · ${got.length.toLocaleString()} real Jev calls · ${(got.length / secs).toFixed(0)}/s · median ${ms} ms`;
+  }
+  $("status").textContent += " · done. Press replay to see all 53,870 from the full run.";
+});
 
 // Ticker: the last few units read, newest on top, one line each (id · verdict · stage).
 const WORD = {b: "BLOCK", k: "ASK", l: "ALLOW"}, CLS = {b: "block", k: "ask", l: "allow"};
@@ -221,6 +249,7 @@ function ticker(S, upto) {
 }
 $("play").onclick = () => TL.then(d => {
   bars($("barsS"), d.stages); bars($("barsC"), d.stages); $("punch").textContent = ""; clearField(d.swarm.length);
+  $("status").textContent = "▶ REPLAY · the full run: 53,870 stored Jev results, 13 minutes shown in 18 seconds";
   const S = d.swarm, C = d.sanctioned, DURATION = 18000, t0 = performance.now(), cs = {}, cc = {};
   let i = 0, j = 0, stop = 0, fp = 0;
   const tick = () => {

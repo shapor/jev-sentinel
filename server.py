@@ -1,7 +1,9 @@
 """Demo server: serves web/index.html and a small JSON API over the hunt results and the live hook feed."""
 
 import collections
+import concurrent.futures
 import http.server
+import threading
 import json
 import pathlib
 import random
@@ -63,6 +65,24 @@ def noise(width=2000):
     return [{"start": k * width, "n": n, "allowed": a} for k, (n, a) in sorted(bins.items())]
 
 
+LIVE_HUNT = []  # results of the current on-stage live run, appended as Jev answers
+
+
+def start_live_hunt(n):
+    """Score n random swarm units with real Jev calls in the background; the page polls /api/livehunt."""
+    LIVE_HUNT.clear()
+    ids = random.sample(list(TEXT), min(n, len(TEXT)))
+
+    def run():
+        code = {"block": "b", "ask": "k", "allow": "l"}
+        with concurrent.futures.ThreadPoolExecutor(16) as ex:
+            for i, res in zip(ids, ex.map(lambda i: sentinel.judge(TEXT[i]), ids)):
+                LIVE_HUNT.append([code[res["verdict"]], res.get("stage", ""), i, res["ms"]])
+
+    threading.Thread(target=run, daemon=True).start()
+    return {"started": len(ids)}
+
+
 def timelapse():
     """Compact per-unit [verdict, stage] in scoring order, for animating the hunt; plus the sanctioned set."""
     code = {"block": "b", "ask": "k", "allow": "l"}
@@ -88,6 +108,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/":
             return self.send(200, (HERE / "web" / "index.html").read_bytes(), "text/html")
         routes = {"/api/stats": stats, "/api/timelapse": timelapse, "/api/noise": noise,
+                  "/api/livehunt": lambda: LIVE_HUNT[int(q.get("since", 0)):],
+                  "/api/livehunt/start": lambda: start_live_hunt(int(q.get("n", 1500))),
                   "/api/sanctioned": lambda: random.sample(SANCTIONED, min(int(q.get("n", 12)), len(SANCTIONED))), "/api/replay": lambda: replay(int(q.get("n", 40))),
                   "/api/examples": lambda: examples(q.get("stage", "exfiltration")),
                   "/api/live": lambda: [r for r in load("live") if r["t"] > float(q.get("since", 0))]}
