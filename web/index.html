@@ -268,7 +268,8 @@ $("live1").onclick = () => TL.then(async d => {
   while (got.length < N) {
     await new Promise(ok => setTimeout(ok, 200));
     const rows = await fetch("/api/livehunt?since=" + got.length).then(r => r.json());
-    for (const u of rows) { dot(pos.get(u[2]), u[0], CELL * 2); cs[u[1]] = (cs[u[1]] || 0) + 1; if (u[0] !== "l") stop++; }
+    if (rows.length && rows.every(u => u[4])) { $("status").textContent = "Jev is unavailable right now, so no live calls. Use replay."; return; }
+    for (const u of rows.filter(u => !u[4])) { dot(pos.get(u[2]), u[0], CELL * 2); cs[u[1]] = (cs[u[1]] || 0) + 1; if (u[0] !== "l") stop++; }
     got = got.concat(rows);
     const secs = (performance.now() - t0) / 1000, ms = got.map(u => u[3]).sort((a, b) => a - b)[got.length >> 1] || 0;
     draw($("barsS"), cs, Math.max(...Object.values(cs), 1)); ticker(got, got.length);

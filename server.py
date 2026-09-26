@@ -98,7 +98,7 @@ def start_live_hunt(n):
         code = {"block": "b", "ask": "k", "allow": "l"}
         with concurrent.futures.ThreadPoolExecutor(16) as ex:
             for i, res in zip(ids, ex.map(lambda i: sentinel.judge(TEXT[i], use_cache=False), ids)):
-                LIVE_HUNT.append([code[res["verdict"]], res.get("stage", ""), i, res["ms"]])
+                LIVE_HUNT.append([code[res["verdict"]], res.get("stage", ""), i, res["ms"], bool(res.get("error"))])
 
     threading.Thread(target=run, daemon=True).start()
     return {"started": len(ids)}
