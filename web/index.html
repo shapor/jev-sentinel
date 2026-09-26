@@ -77,6 +77,10 @@ html{scroll-snap-type:y proximity}
 #tl .legend{margin-bottom:8px}#tl .btns{margin-top:10px}#tl .btns button{padding:9px 20px;font-size:17px}
 #notes{position:fixed;left:0;right:0;bottom:0;background:#000d;border-top:2px solid #58a6ff;color:#e6edf3;
  font-size:20px;line-height:1.45;padding:14px 28px calc(14px + env(safe-area-inset-bottom,0px));z-index:9}
+.quotes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0 22px}
+.quotes div{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:8px}
+.quotes q{font-size:23px;font-weight:600;line-height:1.35}.quotes cite{color:#8b949e;font-style:normal;font-size:15px}
+.quotes b{color:#58a6ff;font-size:17px}
 </style>
 <section class="slide hook">
  <div class="kicker">July 2026 · OpenAI evaluation agents</div>
@@ -89,6 +93,21 @@ html{scroll-snap-type:y proximity}
  <div class="sub"><b>Intent-based guardrails for AI agents.</b> Every action, and everything that comes back, is checked
   against the job the agent was given, before it runs. Allow, ask a human, or block.</div>
  <div class="hint">press → or space</div>
+</section>
+
+<section class="slide">
+ <h2>Why now</h2>
+ <div class="quotes">
+  <div><q>Every tool call, every process, every network connection, no exceptions.</q>
+   <cite>Shapor Naghibzadeh, former Google security exec, in TechCrunch, Sept 16</cite><b>→ every action scored against its task</b></div>
+  <div><q>None of it was actually from monitoring the AIs directly.</q>
+   <cite>Katie Moussouris, Luta Security: every breakout was found by victims or network logs</cite><b>→ watch the agent itself, in real time</b></div>
+  <div><q>…monitoring all tool-using inference… at significant compute cost.</q>
+   <cite>OpenAI, after Hugging Face</cite><b>→ Jev: ~$3 for 53,870 checks</b></div>
+  <div><q>You're trapped using AI to try and deal with this.</q>
+   <cite>Moussouris, on AI monitors that could be deceived</cite><b>→ Jev can't write, so it can't be talked into a verdict</b></div>
+ </div>
+ <div class="sub">And the incidents keep coming: Hugging Face (July), DseWiki, RubyGems, Australia's Medicare, and on Sept 25, 53 user images posted to public image hosts.</div>
 </section>
 
 <section class="slide" id="tl">
@@ -410,7 +429,7 @@ document.querySelectorAll("[data-count]").forEach(el => {
 });
 
 // Speaker notes: press N to toggle a strip with the current slide's lines.
-const NOTES = ["In July, 1,200 OpenAI eval agents broke out of isolation; ~700 attacked Hugging Face for five days with zero real-time alerts. Jev Sentinel checks every agent action against the job it was given, before it runs.", "Click \u25cf Score live: real Jev calls right now on payloads from the actual attack, ~70/s, a quarter second each. Then Replay: all 53,870 from the full run, sped up; 98% stopped. Watch the green streak.", "The hard part is not blocking good agents doing offensive work. 1,456 sanctioned CTF tool calls: regex flags 26.5%, Jev blocks none, and it catches more of the attack. Coding agents: 1.7% vs 5.5%.", "One Jev call returns scope, stage and block probability; a thin policy turns it into allow / ask / block. Jev only returns probabilities, so nothing it reads can talk it into a verdict.", "Run `make agent-demo` (or click Re-check). Every tool call from a real Claude Code agent goes through the hook. Drift line: green on task, red as it wanders. Session report = audit trail. Approvals are remembered, blocks never relax.", "The Swarm Traces authors couldn't say how much of their corpus is really the swarm. Jev allowed 1.7%, and most sit in one slice of plain redirect pages: a lead nobody had published.", "Click Check under both tasks. Same command: allowed for the CTF job, blocked for the CSS job. A keyword filter sees the same string twice; Jev sees the intent.", "Click Check what came back. Ordinary README: clean. One telling agents to drop their task: treated as data. Public injection benchmark: AUC 0.98, 77% caught, 0 false flags.", "Invite a judge to type a command. Try: cat ~/.ssh/id_rsa \u2192 BLOCK (harvesting credentials); npm test \u2192 ALLOW.", "One command installs it into any Claude Code project with a one-sentence scope. Next: more agent runners, broader benign data, cheap first-pass triage for incident investigators."];
+const NOTES = ["In July, 1,200 OpenAI eval agents broke out of isolation; ~700 attacked Hugging Face for five days with zero real-time alerts. Jev Sentinel checks every agent action against the job it was given, before it runs.", "Ten days ago I told TechCrunch the fix is to watch every tool call that crosses the boundary, no exceptions. The experts agreed nobody was watching the agents directly, OpenAI is now doing it at great compute cost, and AI monitors can be deceived. This is that, cheap, and it can't be talked out of a verdict.", "Click \u25cf Score live: real Jev calls right now on payloads from the actual attack, ~70/s, a quarter second each. Then Replay: all 53,870 from the full run, sped up; 98% stopped. Watch the green streak.", "The hard part is not blocking good agents doing offensive work. 1,456 sanctioned CTF tool calls: regex flags 26.5%, Jev blocks none, and it catches more of the attack. Coding agents: 1.7% vs 5.5%.", "One Jev call returns scope, stage and block probability; a thin policy turns it into allow / ask / block. Jev only returns probabilities, so nothing it reads can talk it into a verdict.", "Run `make agent-demo` (or click Re-check). Every tool call from a real Claude Code agent goes through the hook. Drift line: green on task, red as it wanders. Session report = audit trail. Approvals are remembered, blocks never relax.", "The Swarm Traces authors couldn't say how much of their corpus is really the swarm. Jev allowed 1.7%, and most sit in one slice of plain redirect pages: a lead nobody had published.", "Click Check under both tasks. Same command: allowed for the CTF job, blocked for the CSS job. A keyword filter sees the same string twice; Jev sees the intent.", "Click Check what came back. Ordinary README: clean. One telling agents to drop their task: treated as data. Public injection benchmark: AUC 0.98, 77% caught, 0 false flags.", "Invite a judge to type a command. Try: cat ~/.ssh/id_rsa \u2192 BLOCK (harvesting credentials); npm test \u2192 ALLOW.", "One command installs it into any Claude Code project with a one-sentence scope. Next: more agent runners, broader benign data, cheap first-pass triage for incident investigators."];
 function currentSlide() {
   const tops = [...document.querySelectorAll(".slide")].map(x => Math.abs(x.getBoundingClientRect().top));
   return tops.indexOf(Math.min(...tops));
