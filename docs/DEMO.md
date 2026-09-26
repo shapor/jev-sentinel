@@ -15,8 +15,8 @@ OpenAI's fix is to monitor every tool call 'at significant compute cost.' Ten da
 ### Slide 5 · ACT 2 · The hard part: don't stop the good hackers
 The hard part isn't catching the attack. It's not blocking the good agents. On fourteen hundred real tool calls from sanctioned hacking agents, a keyword filter flags a quarter of them. Jev blocks none.
 
-### Slide 6 · HOW IT WORKS
-One Jev call per action: how far out of scope, what it's doing, and whether to block. Why Jev and not a frontier model? A monitor has to read the worst content without flinching, and frontier models refuse. Jev is a pure classifier. It never refuses, and it can't be talked into a verdict.
+### Slide 6 · HOW IT WORKS (what we built)
+Here's what we built today. A hook for Claude Code: before every tool call runs, it sends the action plus the agent's one-sentence job to Jev. One Jev call comes back with how far out of scope it is, what it's doing, and a block probability, and a small policy turns that into allow, ask a human, or block. It checks what comes back from tools too, tracks drift across the session, and installs with one command. We benchmarked it on fifty-four thousand real attack payloads and twenty-three hundred legitimate agent actions, and CodeRabbit reviewed the whole codebase; we fixed fifteen of its eighteen findings. Why Jev and not a frontier model? A monitor has to read the worst content without flinching, and frontier models refuse. Jev is a pure classifier. It never refuses, and it can't be talked into a verdict.
 
 ### Slide 7 · ACT 3 · Live: every tool call checked (drift)
 [click Watch an agent drift] The agent's job is to add a unit test. It starts on task. Green. Now it wanders: an outside website, cloud storage, my SSH key, a production database. Blocked, blocked, blocked. That's the drift line climbing into red.
