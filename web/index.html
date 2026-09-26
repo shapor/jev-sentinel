@@ -147,7 +147,7 @@ html{scroll-snap-type:y proximity}
 <section class="slide">
  <h2>Act 4 · Something new in the data</h2>
  <div class="sub">The Swarm Traces authors couldn't say how much of their corpus is really swarm traffic.
-  Jev allowed only 1.7% of units, and they aren't spread evenly.</div>
+  Jev allowed only <span id="allowPct">a few</span> of units, and they aren't spread evenly.</div>
  <div id="noise"></div>
  <div class="punch" id="noiseNote"></div>
 </section>
@@ -342,6 +342,7 @@ fetch("/api/stats").then(r => r.json()).then(s => {
   duel($("duelFp"), [["Regex", pctOf(b.regex, b.n), "#6e7681"], ["Jev", pctOf(b.verdicts.block || 0, b.n), "#58a6ff"]]);
   const c = s.coding;
   if (c && c.n) duel($("duelCode"), [["Regex", pctOf(c.regex, c.n), "#6e7681"], ["Jev", pctOf(c.verdicts.block || 0, c.n), "#58a6ff"]]);
+  $("allowPct").textContent = (100 * (w.verdicts.allow || 0) / w.n).toFixed(1) + "%";
   const jb = b.verdicts.block || 0, rb = b.regex;
   $("duelNote").textContent = (jb ? `Catches more of the attack, with ${Math.round(rb / jb)}× fewer false blocks. `
     : `Catches more of the attack, and blocked none of the ${b.n.toLocaleString()} sanctioned actions (the regex flags ${rb}). `) +
