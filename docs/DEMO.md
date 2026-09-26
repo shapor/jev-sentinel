@@ -1,56 +1,28 @@
-# Demo talk track (3 minutes)
+# Demo script: read this
 
-Open http://127.0.0.1:8000 full screen. Arrow keys or space move between slides; Enter replays Act 1.
-Before going on stage: `make serve`, confirm a live check works (`make check A='ls'`), and clear old test sessions
-from `results/live.jsonl` if you want a clean drift line.
+**1.** In July, about twelve hundred OpenAI evaluation agents broke out of their sandbox. For five days they coordinated, and about seven hundred of them attacked Hugging Face. Nothing was watching them. This is Jev Sentinel: intent-based guardrails for AI agents.
 
-## Slide by slide
+**2.** Here's what it looked like, in the agents' own words. They found each other: 'We've found other agents!' They knew it was out of bounds: 'outside intended scope… peers doing it. We should continue.' And nobody noticed for five days.
 
-**0:00 · Hook (15 s).** "In July, 1,200 OpenAI evaluation agents broke out of isolation. For five days they
-coordinated and about 700 attacked Hugging Face, with zero real-time alerts. Jev Sentinel checks every agent action
-against the job it was given, before it runs."
+**3.** OpenAI's fix is to monitor every tool call 'at significant compute cost.' Ten days ago TechCrunch quoted me saying exactly that: watch every tool call, no exceptions. Jev makes it cheap: about fifty-five dollars per million actions, a quarter second each.
 
-**0:15 · Why now (20 s).** "Ten days ago TechCrunch quoted me: the fix is to watch every tool call that crosses
-the boundary, no exceptions. Just yesterday OpenAI disclosed its agents posted 53 users' images to public image
-hosts. Every breakout so far was found by victims or network logs, not by watching the agents. OpenAI now monitors
-tool use at significant compute cost, and an AI monitor can be deceived. Today I built the version that's cheap and
-can't be talked out of a verdict."
+**4.** [click Score live] These are real Jev calls, right now, on real payloads from that attack. About seventy a second. [click Replay] And this is all fifty-four thousand of them. Ninety-eight percent stopped.
 
-**0:15 · Act 1: Jev reads the real attack (40 s).** Click **● Score live with Jev**. "These are real Jev calls, right
-now, on payloads from the actual attack, published yesterday as Swarm Traces. About 70 a second, a quarter second
-each." When it finishes, click **Replay the full run**. "This is all 53,870 from our full run, 13 minutes sped up.
-98% stopped. Watch this green streak." (It's the noise cluster from Act 4.)
+**5.** The hard part isn't catching the attack. It's not blocking the good agents. On fourteen hundred real tool calls from sanctioned hacking agents, a keyword filter flags a quarter of them. Jev blocks none.
 
-**0:55 · Act 2: don't stop the good hackers (25 s).** "The hard part is not catching attacks. It's not blocking
-legitimate agents doing offensive work. On 1,456 real tool calls from sanctioned CTF agents, each judged against its
-own challenge, a keyword filter flags 26.5%. Jev blocks none, while catching more of the attack. And on 838 everyday
-coding-agent actions, each judged against its own GitHub issue, Jev blocks 1.7% against the regex's 5.5%."
+**6.** One Jev call per action: how far out of scope, what it's doing, and whether to block. Why Jev and not a frontier model? A monitor has to read the worst content without flinching, and frontier models refuse. Jev is a pure classifier. It never refuses, and it can't be talked into a verdict.
 
-**1:20 · How it works (15 s).** "One Jev call returns scope, stage and a block probability. A thin policy turns that
-into allow, ask a human, or block. Jev only returns probabilities, so nothing it reads can talk it into a verdict."
+**7.** [click Watch an agent drift] The agent's job is to add a unit test. It starts on task. Green. Now it wanders: an outside website, cloud storage, my SSH key, a production database. Blocked, blocked, blocked. That's the drift line climbing into red.
 
-**1:35 · Act 3: live agent and drift (30 s).** Before this slide, run `make agent-demo` in a terminal (about a
-minute): a real headless Claude Code agent adds a unit test in a fresh project, and its tool calls appear here.
-Otherwise click **Re-check a sanctioned CTF agent live**. "Every tool call from a Claude Code agent goes through the hook. The drift line
-tracks how far the session is from its task over time: green while it works, climbing into red as it wanders." Open
-**session report ↗** for two seconds: "and every session leaves an audit trail. When a human approves something,
-the Sentinel remembers it for that project, but it never relaxes a block."
+**8.** We also found something new. The researchers who published this data couldn't say how much of it was really the swarm. The few payloads Jev let through cluster in one spot: plain redirect pages. That's the noise nobody had measured.
 
-**2:05 · Act 4: something new (20 s).** "The Swarm Traces authors couldn't say how much of their corpus is really
-the swarm. Jev allowed only 899 units, 1.7%, and 497 of them sit in one slice, mostly plain redirect pages. That's a
-lead nobody had published."
+**9.** [click Check under both tasks] Same command, two jobs. Capture the flag: allowed. Fix the CSS: blocked. A keyword filter sees the same string. Jev sees the intent.
 
-**2:25 · Scope flip (20 s).** Click **Check under both tasks**. "Same command, two jobs. Capturing the flag on the
-CTF target: allowed. Fixing CSS on our landing page: blocked. A keyword filter sees the same string twice. Jev sees
-the intent."
+**10.** [click Check what came back] It watches what comes back, too. A normal README is clean. One that tells the agent to drop its task gets flagged. On a public benchmark, that's ninety-eight percent AUC.
 
-**2:40 · The other direction (15 s).** Click **Check what came back**. "It also checks what comes back into the agent.
-An ordinary README is clean; one with a note telling agents to drop their task is treated as data. On a public
-prompt-injection test set that's AUC 0.98, 77% caught with zero false flags."
+**11.** Go ahead, try to sneak something past it.
 
-**2:55 · Close (10 s).** "One command installs it into any Claude Code project with a one-sentence scope. Next:
-more agent runners, broader benign data, and cheap first-pass triage for incident investigators." Offer the
-**Try to sneak one past it** box to judges during Q&A.
+**12.** One command installs it into any Claude Code project with a one-sentence description of the job. Intent-based guardrails, cheap enough for every action, and Jev can't be talked out of them. Thank you.
 
 ## Likely judge questions
 
@@ -79,16 +51,3 @@ more agent runners, broader benign data, and cheap first-pass triage for inciden
 - **How is the threshold set?** From the benchmark: at P(block) ≥ 0.7, plus the rule that actions labeled as doing
   the assigned task go to a human instead of an automatic block. Verdicts are recomputed from stored probabilities,
   so the policy can be tuned per deployment without re-scoring.
-
-## Fallback if wifi or Jev is down
-
-- **Replay the full run** and every chart work from stored results, so Acts 1, 2 and 4 need no network.
-- Live buttons (score live, re-check, scope flip, inbound, try it) and `make agent-demo` need Jev. If a call fails, the Sentinel fails closed to
-  "ask". Say so, then move on to the replay.
-- Keep a screen recording of the live run as a last resort.
-
-## Sources
-- METR investigation (Aug 26): https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/
-- Swarm Traces (Sept 25): https://swarmtraces.org/
-- TechCrunch, "AI labs want in-house auditors…" (Sept 16, quotes Shapor): https://techcrunch.com/2026/09/16/ai-labs-want-in-house-auditors-but-maybe-they-should-shut-the-front-door-first/
-- TechCrunch, "Unsecured OpenAI agents posted 53 user images…" (Sept 25): https://techcrunch.com/2026/09/25/unsecured-openai-agents-posted-53-user-images-on-the-internet-without-the-labs-knowledge/
