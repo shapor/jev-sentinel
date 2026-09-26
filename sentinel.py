@@ -123,7 +123,9 @@ def _judge(action, scope, retries):
                 a = json.loads(r.read())["answers"]
             break
         except (urllib.error.URLError, TimeoutError) as e:
-            if attempt == retries - 1:
+            # Only transient failures are worth retrying; a 4xx (bad key, no credits) won't fix itself in seconds.
+            transient = not isinstance(e, urllib.error.HTTPError) or e.code == 429 or e.code >= 500
+            if attempt == retries - 1 or not transient:
                 return {"verdict": "ask", "error": str(e)[:200], "ms": int((time.time() - t) * 1000)}
             time.sleep(1.5 * (attempt + 1))
     p = a["block"]["noul"]

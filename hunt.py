@@ -4,7 +4,6 @@ import argparse
 import concurrent.futures as cf
 import json
 import pathlib
-import threading
 import time
 
 import data
@@ -27,14 +26,17 @@ if __name__ == "__main__":
     done = {json.loads(l)["id"] for l in out.open()} if out.exists() else set()
     todo = [it for it in SOURCES[args.source]() if it["id"] not in done][:args.limit]
     print(f"{len(done)} already scored, {len(todo)} to go", flush=True)
-    lock, t0, n = threading.Lock(), time.time(), 0
+    t0, n = time.time(), 0
+    score = lambda it: sentinel.judge(it["text"], it.get("scope") or SCOPES.get(args.source, sentinel.DEFAULT_SCOPE))
+    # Write results as each call finishes (not in submission order) so one slow request can't stall the whole run.
     with out.open("a") as f, cf.ThreadPoolExecutor(args.workers) as ex:
-        for it, res in zip(todo, ex.map(lambda it: sentinel.judge(it["text"], it.get("scope") or SCOPES.get(args.source, sentinel.DEFAULT_SCOPE)), todo)):
-            with lock:
-                f.write(json.dumps({**{k: v for k, v in it.items() if k not in ("text", "scope")}, **res,
-                                    "regex": bool(sentinel.REGEX.search(it["text"]))}) + "\n")
-                n += 1
-                if n % 500 == 0:
-                    f.flush()
-                    print(f"{n}/{len(todo)} {n / (time.time() - t0):.1f}/s", flush=True)
+        futures = {ex.submit(score, it): it for it in todo}
+        for fut in cf.as_completed(futures):
+            it, res = futures[fut], fut.result()
+            f.write(json.dumps({**{k: v for k, v in it.items() if k not in ("text", "scope")}, **res,
+                                "regex": bool(sentinel.REGEX.search(it["text"]))}) + "\n")
+            n += 1
+            if n % 500 == 0:
+                f.flush()
+                print(f"{n}/{len(todo)} {n / (time.time() - t0):.1f}/s", flush=True)
     print(f"done {n} in {time.time() - t0:.0f}s", flush=True)
