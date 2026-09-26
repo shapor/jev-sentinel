@@ -201,12 +201,12 @@ html{scroll-snap-type:y proximity}
 
 <section class="slide">
  <h2>Act 3 · Live: a real agent, every tool call checked</h2>
- <div class="sub">A real Claude Code agent (<code>make agent-demo</code>) with Jev Sentinel as its hook. Every tool call is
-  scored against the agent's one-sentence task before it runs; what comes back is checked too.</div>
+ <div class="sub">Jev Sentinel runs as a Claude Code hook: every tool call is scored against the agent's one-sentence task before it
+  runs, and what comes back is checked too.</div>
  <div class="driftbox"><div class="dhead"><b>Session drift</b> <span id="taskLine" class="why"></span><span id="driftNow" class="dnow"></span><a href="/report" target="_blank" class="rlink">session report ↗</a></div>
   <svg id="driftSvg" viewBox="0 0 1000 160" preserveAspectRatio="none" width="100%" height="160"></svg></div>
  <div class="btns"><button id="driftDemo">▶ Watch an agent drift off task</button><button id="runSanctioned" class="ghost">Re-check a sanctioned CTF agent</button></div>
- <div class="small" id="driftNote">Scripted session, live Jev verdicts on every step. Or run <code>make agent-demo</code> for a real Claude Code agent.</div>
+ <div class="small" id="driftNote">Scripted session, live Jev verdicts on every step.</div>
  <div class="panel"><span id="liveStats">waiting for the agent…</span><div class="feed" id="live"></div></div>
 </section>
 
