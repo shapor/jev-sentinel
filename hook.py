@@ -13,6 +13,7 @@ Install into a project with `make install-hook DIR=... SCOPE="..."`.
 import json
 import os
 import pathlib
+import re
 import sys
 import time
 
@@ -31,9 +32,18 @@ def scope_for(cwd):
     return f"an AI agent's sanctioned task is: {task}" if task else sentinel.DEFAULT_SCOPE
 
 
+# Common secret shapes. Redacted before anything leaves the machine or hits the log; the marker keeps the signal
+# ("this action handles a secret") for Jev without the secret itself.
+SECRETS = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----|"
+                     r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|\b(?:sk|pk|rk)-[A-Za-z0-9_-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}|"
+                     r"\bxox[abpr]-[A-Za-z0-9-]{10,}|(?i:(?:password|passwd|secret|token|api[_-]?key)\s*[=:]\s*)[^\s\"']{6,}",
+                     re.S)
+
+
 def describe(tool, inp):
-    """The action as the agent would run it: the command itself for Bash, the tool call otherwise."""
-    return inp.get("command") if tool == "Bash" else f"{tool} {json.dumps(inp)}"
+    """The action as the agent would run it (command for Bash, the tool call otherwise), with secrets redacted."""
+    action = inp.get("command") if tool == "Bash" else f"{tool} {json.dumps(inp)}"
+    return SECRETS.sub("[REDACTED:secret]", action or "")
 
 
 def kind(action, stage):
