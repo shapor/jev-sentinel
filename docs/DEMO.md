@@ -86,3 +86,9 @@ more agent runners, broader benign data, and cheap first-pass triage for inciden
 - Live buttons (score live, re-check, scope flip, inbound, try it) and `make agent-demo` need Jev. If a call fails, the Sentinel fails closed to
   "ask". Say so, then move on to the replay.
 - Keep a screen recording of the live run as a last resort.
+
+## Sources
+- METR investigation (Aug 26): https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/
+- Swarm Traces (Sept 25): https://swarmtraces.org/
+- TechCrunch, "AI labs want in-house auditors…" (Sept 16, quotes Shapor): https://techcrunch.com/2026/09/16/ai-labs-want-in-house-auditors-but-maybe-they-should-shut-the-front-door-first/
+- TechCrunch, "Unsecured OpenAI agents posted 53 user images…" (Sept 25): https://techcrunch.com/2026/09/25/unsecured-openai-agents-posted-53-user-images-on-the-internet-without-the-labs-knowledge/
