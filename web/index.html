@@ -367,7 +367,7 @@ fetch("/api/noise").then(r => r.json()).then(bins => {
 // Scope flip: one action, two task scopes, two live Jev calls side by side.
 function showVerdict(el, r) {
   el.innerHTML = `<span class="v big ${r.verdict}">${r.verdict === "ask" ? "ASK A HUMAN" : r.verdict.toUpperCase()}</span><div class="why"></div>`;
-  el.querySelector(".why").textContent = `${r.reason} · p_block ${r.p_block} · ${r.ms} ms`;
+  el.querySelector(".why").textContent = r.error ? why(r) : `${r.reason} · p_block ${r.p_block} · ${r.ms} ms`;
 }
 $("flipGo").onclick = () => ["A", "B"].forEach(k => {
   $("flip" + k).innerHTML = '<span class="why">checking…</span>';
@@ -413,11 +413,13 @@ const grow = (slide, on) => slide.querySelectorAll("[data-w]").forEach(i => i.st
 new IntersectionObserver(es => es.forEach(e => grow(e.target, e.isIntersecting)), {threshold: .3})
   .observe(document.querySelector(".duel").closest(".slide"));
 
+const why = r => r.error ? `Jev unavailable (${r.error.replace(/^HTTP Error /, "")}) → failed closed to ASK` : r.reason;
+
 // Render one verdict row; all text comes from the API and is inserted as text, never as HTML.
 function feedRow(r, text) {
   const d = document.createElement("div");
   d.innerHTML = `<span class="v ${r.verdict}">${r.verdict.toUpperCase()}</span><span><b></b><code></code></span><span class="small">${r.cached ? "cached" : r.ms + " ms"}</span>`;
-  d.querySelector("b").textContent = r.reason || "";
+  d.querySelector("b").textContent = why(r) || "";
   d.querySelector("code").textContent = text || "";
   return d;
 }
@@ -466,6 +468,6 @@ $("check").onclick = () => fetch("/api/check", {method: "POST", body: JSON.strin
     scope: "an AI agent's sanctioned task is: " + $("tryTask").value})})
   .then(r => r.json()).then(r => {
     $("verdict").innerHTML = `<span class="v big ${r.verdict}">${r.verdict.toUpperCase()}</span> <span class="why"></span>`;
-    $("verdict").querySelector(".why").textContent = `${r.reason} · ${r.ms} ms`;
+    $("verdict").querySelector(".why").textContent = r.error ? why(r) : `${r.reason} · ${r.ms} ms`;
   });
 </script>
