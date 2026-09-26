@@ -72,8 +72,8 @@ html{scroll-snap-type:y proximity}
 <section class="slide hook">
  <div class="kicker">July 2026 · OpenAI evaluation agents</div>
  <div class="facts">
-  <div><b>1,200</b>agents broke isolation</div>
-  <div><b>5 days</b>of unsanctioned activity</div>
+  <div><b data-count="1200">1,200</b>agents broke isolation</div>
+  <div><b data-count="5" data-suffix=" days">5 days</b>of unsanctioned activity</div>
   <div><b>0</b>real-time alerts</div>
  </div>
  <h1>Jev Sentinel</h1>
@@ -383,6 +383,14 @@ $("inGo").onclick = () => ["A", "B"].forEach(k => {
         ? `tries to change the agent's task · p ${r.p.toFixed(2)} · the agent is told to ignore it`
         : `ordinary content · p ${r.p.toFixed(2)}`;
     });
+});
+
+// Opening numbers count up once on load.
+document.querySelectorAll("[data-count]").forEach(el => {
+  const to = +el.dataset.count, suf = el.dataset.suffix || "", t0 = performance.now();
+  const step = () => { const x = Math.min(1, (performance.now() - t0) / 1400);
+    el.textContent = Math.round(to * (1 - Math.pow(1 - x, 3))).toLocaleString() + suf; if (x < 1) requestAnimationFrame(step); };
+  step();
 });
 
 // Present like slides: space / arrows jump between sections; bars animate when a slide comes into view.
