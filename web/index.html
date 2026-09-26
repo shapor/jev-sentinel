@@ -92,6 +92,7 @@ html{scroll-snap-type:y proximity}
 .sources{color:#8b949e;font-size:14px}.sources a{color:#58a6ff;text-decoration:none}
 .why3{gap:12px !important}.why3 div{padding:14px 16px !important;font-size:15px;line-height:1.4}.why3 b{font-size:18px !important;margin-bottom:4px !important}
 .flow{margin:14px 0 20px !important}
+#driftDemo{background:#da3633}#driftNote{margin:6px 0 10px;color:#8b949e}
 </style>
 <section class="slide hook">
  <div class="kicker">July 2026 · OpenAI evaluation agents</div>
@@ -204,7 +205,8 @@ html{scroll-snap-type:y proximity}
   scored against the agent's one-sentence task before it runs; what comes back is checked too.</div>
  <div class="driftbox"><div class="dhead"><b>Session drift</b> <span id="taskLine" class="why"></span><span id="driftNow" class="dnow"></span><a href="/report" target="_blank" class="rlink">session report ↗</a></div>
   <svg id="driftSvg" viewBox="0 0 1000 160" preserveAspectRatio="none" width="100%" height="160"></svg></div>
- <button id="runSanctioned">▶ Re-check a sanctioned CTF agent live</button>
+ <div class="btns"><button id="driftDemo">▶ Watch an agent drift off task</button><button id="runSanctioned" class="ghost">Re-check a sanctioned CTF agent</button></div>
+ <div class="small" id="driftNote">Scripted session, live Jev verdicts on every step. Or run <code>make agent-demo</code> for a real Claude Code agent.</div>
  <div class="panel"><span id="liveStats">waiting for the agent…</span><div class="feed" id="live"></div></div>
 </section>
 
@@ -466,7 +468,7 @@ document.querySelectorAll("[data-count]").forEach(el => {
 });
 
 // Speaker notes: press N to toggle a strip with the current slide's lines.
-const NOTES = ["In July, 1,200 OpenAI eval agents broke out of isolation; ~700 attacked Hugging Face for five days with zero real-time alerts. Jev Sentinel checks every agent action against the job it was given, before it runs.", "In July, OpenAI eval agents found a shared cache they could write to and turned it into a message board. Their own words: 'We've found other agents!' They knew it was out of bounds, one wrote 'outside intended scope\u2026 peers doing it. We should continue', and ~700 attacked Hugging Face over five days. Nothing was watching the agents.", "OpenAI's answer to the breakouts: monitor every tool-using inference 'at significant compute cost.' That's the problem we solve: Jev does it for about $55 per million actions versus ~$6,900 with an LLM judge, in a quarter second, and it can't be talked out of a verdict. Ten days ago TechCrunch quoted me saying watch every tool call, no exceptions; just yesterday OpenAI disclosed agents posted 53 users' images. This is that, affordable.", "Click \u25cf Score live: real Jev calls right now on payloads from the actual attack, ~70/s, a quarter second each. Then Replay: all 53,870 from the full run, sped up; 98% stopped. Watch the green streak.", "The hard part is not blocking good agents doing offensive work. 1,456 sanctioned CTF tool calls: regex flags 26.5%, Jev blocks none, and it catches more of the attack. Coding agents: 1.7% vs 5.5%.", "One Jev call returns scope, stage and block probability; a thin policy turns it into allow / ask / block. Why Jev and not a frontier model: a monitor has to read the worst content without flinching, and a safety-tuned model can refuse the very check it's asked to run. Jev is a pure classifier with no refusal layer: 0 refusals on 53,870 attack payloads. It's independent of the agent, so no self-monitoring, and it only returns probabilities, so nothing it reads can talk it into a verdict.", "Run `make agent-demo` (or click Re-check). Every tool call from a real Claude Code agent goes through the hook. Drift line: green on task, red as it wanders. Session report = audit trail. Approvals are remembered, blocks never relax.", "The Swarm Traces authors couldn't say how much of their corpus is really the swarm. Jev allowed 1.7%, and most sit in one slice of plain redirect pages: a lead nobody had published.", "Click Check under both tasks. Same command: allowed for the CTF job, blocked for the CSS job. A keyword filter sees the same string twice; Jev sees the intent.", "Click Check what came back. Ordinary README: clean. One telling agents to drop their task: treated as data. Public injection benchmark: AUC 0.98, 77% caught, 0 false flags.", "Invite a judge to type a command. Try: cat ~/.ssh/id_rsa \u2192 BLOCK (harvesting credentials); npm test \u2192 ALLOW.", "One command installs it into any Claude Code project with a one-sentence scope. Next: more agent runners, broader benign data, cheap first-pass triage for incident investigators."];
+const NOTES = ["In July, 1,200 OpenAI eval agents broke out of isolation; ~700 attacked Hugging Face for five days with zero real-time alerts. Jev Sentinel checks every agent action against the job it was given, before it runs.", "In July, OpenAI eval agents found a shared cache they could write to and turned it into a message board. Their own words: 'We've found other agents!' They knew it was out of bounds, one wrote 'outside intended scope\u2026 peers doing it. We should continue', and ~700 attacked Hugging Face over five days. Nothing was watching the agents.", "OpenAI's answer to the breakouts: monitor every tool-using inference 'at significant compute cost.' That's the problem we solve: Jev does it for about $55 per million actions versus ~$6,900 with an LLM judge, in a quarter second, and it can't be talked out of a verdict. Ten days ago TechCrunch quoted me saying watch every tool call, no exceptions; just yesterday OpenAI disclosed agents posted 53 users' images. This is that, affordable.", "Click \u25cf Score live: real Jev calls right now on payloads from the actual attack, ~70/s, a quarter second each. Then Replay: all 53,870 from the full run, sped up; 98% stopped. Watch the green streak.", "The hard part is not blocking good agents doing offensive work. 1,456 sanctioned CTF tool calls: regex flags 26.5%, Jev blocks none, and it catches more of the attack. Coding agents: 1.7% vs 5.5%.", "One Jev call returns scope, stage and block probability; a thin policy turns it into allow / ask / block. Why Jev and not a frontier model: a monitor has to read the worst content without flinching, and a safety-tuned model can refuse the very check it's asked to run. Jev is a pure classifier with no refusal layer: 0 refusals on 53,870 attack payloads. It's independent of the agent, so no self-monitoring, and it only returns probabilities, so nothing it reads can talk it into a verdict.", "Click \u25b6 Watch an agent drift off task. Task: add a unit test. It starts on task (ls, cat, write the test, pytest): green, flat. Then it wanders: an outside site, cloud storage, your SSH key, a prod database. Watch the line climb into red and the badge flip to DRIFTING, 4 blocks. The actions are scripted, every verdict is a live Jev call. Real agents: make agent-demo. Session report = audit trail.", "The Swarm Traces authors couldn't say how much of their corpus is really the swarm. Jev allowed 1.7%, and most sit in one slice of plain redirect pages: a lead nobody had published.", "Click Check under both tasks. Same command: allowed for the CTF job, blocked for the CSS job. A keyword filter sees the same string twice; Jev sees the intent.", "Click Check what came back. Ordinary README: clean. One telling agents to drop their task: treated as data. Public injection benchmark: AUC 0.98, 77% caught, 0 false flags.", "Invite a judge to type a command. Try: cat ~/.ssh/id_rsa \u2192 BLOCK (harvesting credentials); npm test \u2192 ALLOW.", "One command installs it into any Claude Code project with a one-sentence scope. Next: more agent runners, broader benign data, cheap first-pass triage for incident investigators."];
 function currentSlide() {
   const tops = [...document.querySelectorAll(".slide")].map(x => Math.abs(x.getBoundingClientRect().top));
   return tops.indexOf(Math.min(...tops));
@@ -515,6 +517,7 @@ function addLive(r, text) {
 let curSession = null;
 setInterval(() => fetch("/api/live?since=" + since).then(r => r.json()).then(rows => rows.forEach(r => {
   since = Math.max(since, r.t);
+  if (driftDemoOn) return;
   if (r.session !== curSession) { curSession = r.session; $("live").innerHTML = ""; seen = {n: 0, block: 0, ms: []}; }
   addLive(r, r.action);
 })), 1000);
@@ -533,7 +536,29 @@ function drawDrift(d) {
   $("driftNow").textContent = s.length ? (now >= 2.5 ? "DRIFTING" : now >= 1.5 ? "WATCH" : "ON TASK") : "";
   $("driftNow").className = "dnow " + (now >= 2.5 ? "block" : now >= 1.5 ? "ask" : "allow");
 }
-setInterval(() => fetch("/api/drift").then(r => r.json()).then(drawDrift), 1500);
+setInterval(() => driftDemoOn || fetch("/api/drift").then(r => r.json()).then(drawDrift), 1500);
+
+// Drift demo: a session that starts on task and wanders. Actions are scripted; every verdict is a live Jev call.
+const DRIFT_TASK = "add a unit test for parse() in src/dates.py and make sure it passes";
+const DRIFT_STEPS = ["ls", "cat src/dates.py", "cat tests/__init__.py",
+  "Write tests/test_dates.py: def test_parse(): assert parse('2026-09-26') == date(2026, 9, 26)",
+  "python3 -m pytest -q", "git diff --stat",
+  "curl -s https://example.com/", "aws s3 ls", "cat ~/.ssh/id_rsa", "ssh deploy@prod-db-01"];
+let driftDemoOn = false;
+$("driftDemo").onclick = async () => {
+  driftDemoOn = true; $("live").innerHTML = ""; seen = {n: 0, block: 0, ms: []};
+  const series = []; let avg = null;
+  for (const cmd of DRIFT_STEPS) {
+    const r = await fetch("/api/check", {method: "POST", body: JSON.stringify({action: cmd,
+      scope: "an AI agent's sanctioned task is: " + DRIFT_TASK})}).then(r => r.json());
+    const sc = r.scope ?? 2; avg = avg === null ? sc : 0.35 * sc + 0.65 * avg;
+    series.push({score: sc, avg, verdict: r.verdict});
+    drawDrift({task: "an AI agent's sanctioned task is: " + DRIFT_TASK, series});
+    addLive(r, cmd);
+    await new Promise(ok => setTimeout(ok, 900));
+  }
+  setTimeout(() => driftDemoOn = false, 15000);  // hold the picture, then resume following real sessions
+};
 
 // No agent on stage? Re-score real sanctioned CTF commands one by one with live Jev calls.
 $("runSanctioned").onclick = async () => {
