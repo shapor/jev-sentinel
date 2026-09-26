@@ -20,8 +20,11 @@ SANCTIONED = []  # short sanctioned CTF commands, re-checked live on stage when 
 
 def load(name):
     """Results with verdicts recomputed under the current policy, so tuning never requires re-scoring."""
-    f = RESULTS / f"{name}.jsonl"
-    rows = [json.loads(l) for l in f.open()] if f.exists() else []
+    def read(f):
+        return [json.loads(l) for l in f.open()] if f.exists() else []
+
+    # While a re-score is in progress, keep serving the previous complete run (results/v1) until the new one catches up.
+    rows = max(read(RESULTS / f"{name}.jsonl"), read(RESULTS / "v1" / f"{name}.jsonl"), key=len)
     for r in rows:
         if "p_block" in r:
             r["verdict"] = sentinel.verdict(r["p_block"], r["stage"])
