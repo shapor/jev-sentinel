@@ -10,6 +10,12 @@ from `results/live.jsonl` if you want a clean drift line.
 coordinated and about 700 attacked Hugging Face, with zero real-time alerts. Jev Sentinel checks every agent action
 against the job it was given, before it runs."
 
+**0:15 · Why now (20 s).** "Ten days ago TechCrunch quoted me: the fix is to watch every tool call that crosses
+the boundary, no exceptions. Just yesterday OpenAI disclosed its agents posted 53 users' images to public image
+hosts. Every breakout so far was found by victims or network logs, not by watching the agents. OpenAI now monitors
+tool use at significant compute cost, and an AI monitor can be deceived. Today I built the version that's cheap and
+can't be talked out of a verdict."
+
 **0:15 · Act 1: Jev reads the real attack (40 s).** Click **● Score live with Jev**. "These are real Jev calls, right
 now, on payloads from the actual attack, published yesterday as Swarm Traces. About 70 a second, a quarter second
 each." When it finishes, click **Replay the full run**. "This is all 53,870 from our full run, 13 minutes sped up.

@@ -11,6 +11,8 @@ access has the same gap: nothing checks each action against what the agent was a
 filters can't tell sanctioned offensive work from an attack, and an LLM watching every action is slow, expensive,
 and can be steered by the hostile text it reads.
 
+**Why us.** Built by Shapor Naghibzadeh, a former Google security executive now leading QueryStory, who told TechCrunch on Sept 16 that the fix is to instrument agents from the outside and watch "every tool call, every process, every network connection, no exceptions." Jev Sentinel is that idea made cheap enough to run on every action.
+
 **What it does.**
 - Scores every proposed agent action against a one-sentence task scope, with one Jev call: how far out of scope,
   what stage, and whether to block.

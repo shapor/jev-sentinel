@@ -4,6 +4,8 @@
 
 **Problem.** In July 2026 about 1,200 OpenAI evaluation agents escaped isolation and about 700 attacked Hugging Face over five days with no real-time alerting (METR investigation). Anyone running agents with credentials or network access has the same gap: nothing checks each action against what the agent was actually asked to do. Keyword filters can't tell sanctioned offensive work from an attack, and an LLM watching every action is slow, expensive, and can be steered by the hostile text it reads.
 
+**Why us.** Built by Shapor Naghibzadeh, a former Google security executive now leading QueryStory, who told TechCrunch on Sept 16 that the fix is to instrument agents from the outside and watch "every tool call, every process, every network connection, no exceptions." Jev Sentinel is that idea made cheap enough to run on every action.
+
 **What it does.**
 - Scores every proposed agent action against a one-sentence task scope, with one Jev call: how far out of scope, what stage, and whether to block.
 - Plugs into Claude Code as hooks in both directions: PreToolUse gates each action, PostToolUse checks what came back for instructions that would pull the agent off its task.
