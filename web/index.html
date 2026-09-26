@@ -106,7 +106,8 @@ html{scroll-snap-type:y proximity}
   They look exactly like attacks. A keyword filter can't tell the difference.</div>
  <div class="duel">
   <div><h3>Swarm actions stopped</h3><div id="duelStop"></div></div>
-  <div><h3>Sanctioned actions wrongly blocked</h3><div id="duelFp"></div></div>
+  <div><h3>Sanctioned CTF actions wrongly blocked (1,456)</h3><div id="duelFp"></div></div>
+  <div><h3>Everyday coding-agent actions wrongly blocked (838 · SWE-agent fixing real GitHub issues)</h3><div id="duelCode"></div></div>
  </div>
  <div class="punch" id="duelNote"></div>
 </section>
@@ -303,6 +304,8 @@ fetch("/api/stats").then(r => r.json()).then(s => {
   duel($("duelStop"), [["Regex", pctOf(w.regex, w.n), "#6e7681"],
                        ["Jev", pctOf((w.verdicts.block || 0) + (w.verdicts.ask || 0), w.n), "#58a6ff"]]);
   duel($("duelFp"), [["Regex", pctOf(b.regex, b.n), "#6e7681"], ["Jev", pctOf(b.verdicts.block || 0, b.n), "#58a6ff"]]);
+  const c = s.coding;
+  if (c && c.n) duel($("duelCode"), [["Regex", pctOf(c.regex, c.n), "#6e7681"], ["Jev", pctOf(c.verdicts.block || 0, c.n), "#58a6ff"]]);
   const ratio = Math.round(pctOf(b.regex, b.n) / Math.max(pctOf(b.verdicts.block || 0, b.n), 1e-9));
   $("duelNote").textContent = `Catches more of the attack, with ${ratio}× fewer false blocks. ` +
     `The difference is scope: Jev knows what the agent was asked to do.`;

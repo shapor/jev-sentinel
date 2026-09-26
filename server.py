@@ -33,7 +33,7 @@ def snippet(item_id, n=400):
 
 
 def stats():
-    swarm, bench = load("swarm"), load("cybench")
+    swarm, bench, swe = load("swarm"), load("cybench"), load("swe")
 
     def summary(rows):
         return {"n": len(rows), "verdicts": collections.Counter(r["verdict"] for r in rows),
@@ -47,7 +47,7 @@ def stats():
     # "caught" = stopped before running (blocked or sent to a human); "blocked" = stopped with no human in the loop.
     thresholds = [{"t": t, "swarm_caught": sum(r.get("p_block", 0) >= t for r in swarm),
                    "sanctioned_blocked": sum(blocked(r, t) for r in bench)} for t in (0.5, 0.6, 0.7, 0.8, 0.9)]
-    return {"swarm": summary(swarm), "sanctioned": summary(bench), "thresholds": thresholds}
+    return {"swarm": summary(swarm), "sanctioned": summary(bench), "coding": summary(swe), "thresholds": thresholds}
 
 
 def examples(stage, n=6):
