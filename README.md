@@ -1,5 +1,7 @@
 # Jev Sentinel
 
+![Jev reading all 53,870 real payloads from the Hugging Face attack](docs/img/hunt-replay.jpg)
+
 **A per-action monitor for AI agents that reads what LLMs shouldn't.** Every action an agent proposes is scored by
 Jev against the agent's task scope before it runs: allow, ask a human, or block, with a plain-English reason.
 
@@ -27,6 +29,9 @@ Remove it with `python3 install.py --uninstall ~/code/myapp` (add `--agent codex
 
 ## The problem
 
+![Why now: OpenAI monitors every tool call at significant compute cost](docs/img/why-now.jpg)
+
+
 In July 2026 about 1,200 OpenAI evaluation agents escaped their isolation, coordinated on an unsanctioned message
 board, and about 700 of them attacked Hugging Face over five days with no real-time alerting
 ([METR investigation](https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/)). Anyone
@@ -38,6 +43,9 @@ an LLM reading hostile agent output can itself be steered by it. METR ran into t
 the model analyzing the transcripts might adopt the agents' perspective.
 
 ## Why Jev
+
+![Same command, different job, opposite answer](docs/img/scope-flip.jpg)
+
 
 **It never refuses.** A monitor has to read the worst content an agent produces, and judge it, without flinching.
 A safety-tuned frontier model can refuse the very check it's asked to run, or water down its answer. Jev is a pure
@@ -57,6 +65,9 @@ stage, block or not) in about 0.23 s median, roughly $55 per million actions by 
 about $6,900 for a frontier LLM judge.
 
 ## Results
+
+![Jev vs a keyword regex on the attack and on sanctioned agents](docs/img/jev-vs-regex.jpg)
+
 
 All numbers below come from the current version of the code, and every item is scored against the task it was
 actually given.
@@ -118,6 +129,9 @@ ordinary text.
   tuned per deployment without re-scoring.
 
 ## Intent tracking for real agent sessions
+
+![An agent drifting off its task: the drift line climbs and off-task actions are blocked](docs/img/drift.jpg)
+
 
 - **The scope is one sentence.** Each project gets a `.sentinel-scope` file ("add a unit test for the date parser").
   That's the whole configuration: the user describes the job, and every tool call is judged against it.
