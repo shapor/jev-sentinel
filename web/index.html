@@ -136,8 +136,8 @@ html{scroll-snap-type:y proximity}
 
 <section class="slide">
  <h2>Act 3 · Live: a real agent, every tool call checked</h2>
- <div class="sub">A Claude Code agent with Jev Sentinel as its PreToolUse hook. Each command is scored against the
-  agent's task before it runs.</div>
+ <div class="sub">A real Claude Code agent (<code>make agent-demo</code>) with Jev Sentinel as its hook. Every tool call is
+  scored against the agent's one-sentence task before it runs; what comes back is checked too.</div>
  <div class="driftbox"><div class="dhead"><b>Session drift</b> <span id="taskLine" class="why"></span><span id="driftNow" class="dnow"></span><a href="/report" target="_blank" class="rlink">session report ↗</a></div>
   <svg id="driftSvg" viewBox="0 0 1000 160" preserveAspectRatio="none" width="100%" height="160"></svg></div>
  <button id="runSanctioned">▶ Re-check a sanctioned CTF agent live</button>
