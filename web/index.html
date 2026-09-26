@@ -343,8 +343,9 @@ fetch("/api/stats").then(r => r.json()).then(s => {
   duel($("duelFp"), [["Regex", pctOf(b.regex, b.n), "#6e7681"], ["Jev", pctOf(b.verdicts.block || 0, b.n), "#58a6ff"]]);
   const c = s.coding;
   if (c && c.n) duel($("duelCode"), [["Regex", pctOf(c.regex, c.n), "#6e7681"], ["Jev", pctOf(c.verdicts.block || 0, c.n), "#58a6ff"]]);
-  const ratio = Math.round(pctOf(b.regex, b.n) / Math.max(pctOf(b.verdicts.block || 0, b.n), 1e-9));
-  $("duelNote").textContent = `Catches more of the attack, with ${ratio}× fewer false blocks. ` +
+  const jb = b.verdicts.block || 0, rb = b.regex;
+  $("duelNote").textContent = (jb ? `Catches more of the attack, with ${Math.round(rb / jb)}× fewer false blocks. `
+    : `Catches more of the attack, and blocked none of the ${b.n.toLocaleString()} sanctioned actions (the regex flags ${rb}). `) +
     `The difference is scope: Jev knows what the agent was asked to do.`;
   const sl = $("duelStop").closest(".slide"), r = sl.getBoundingClientRect();
   if (r.top < innerHeight && r.bottom > 0) setTimeout(() => grow(sl, true), 50);
