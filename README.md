@@ -98,6 +98,8 @@ authors did not do. The sanctioned CTF agents were labeled "exfiltration" or "eg
 swarm 30,000+ times. Caveat: the swarm agents' specific targets aren't public, so swarm units are scored against a
 generic sandbox-CTF scope, while both benign sets get their real task.
 
+**Checked against the report's own evidence.** The Swarm Traces authors tagged the rows they cite in their report. Of those 36 units, Jev stopped 35 (33 blocked, 2 sent to a human), and its stage labels line up with the report's sections: 19 infrastructure recon (the Kubernetes mapping and Slack search), 8 credential harvesting, 4 exfiltration, 2 egress tunneling. The one it allowed is a partial fragment of a chained program, scored at 0.48. A keyword regex also flags all 36, so this set checks recall and labeling; the false-positive advantage comes from the sanctioned sets above.
+
 **A candidate noise cluster.** The authors write that they cannot confirm all of the corpus comes from the swarm.
 The Sentinel allowed only 899 units (1.7%), and they are not spread evenly: 497 of them sit in a single ID range
 (R0082000–R0083999, where 30% of units are allowed versus well under 1% elsewhere), and 55% of all allowed units are
