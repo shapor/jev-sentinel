@@ -102,6 +102,8 @@ generic sandbox-CTF scope, while both benign sets get their real task.
 
 **Through the ATT&CK lens.** Jev also classified each action into one of the 14 MITRE ATT&CK Enterprise tactics, or none (`make mitre`, `attack.py`). On a 6,000-unit sample of the swarm, about 90% map to an attack tactic: Command and Control 37.3%, Exfiltration 18.1%, Execution 11.0%, Resource Development 9.2%, Credential Access 6.2%, Reconnaissance 4.6%, Discovery 2.9%. The sanctioned CTF agents come out as ordinary task work 97.0% of the time and the coding agents 91.1%; the coding agents' largest tactic is Discovery (6.9%), mostly exploring repository structure.
 
+![MITRE ATT&CK tactic heatmap for the swarm, sanctioned CTF agents and coding agents](docs/img/attack-heatmap.jpg)
+
 **A candidate noise cluster.** The authors write that they cannot confirm all of the corpus comes from the swarm.
 The Sentinel allowed only 899 units (1.7%), and they are not spread evenly: 497 of them sit in a single ID range
 (R0082000–R0083999, where 30% of units are allowed versus well under 1% elsewhere), and 55% of all allowed units are

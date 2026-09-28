@@ -54,6 +54,24 @@ def stats():
     return {"swarm": summary(swarm), "sanctioned": summary(bench), "coding": summary(swe), "thresholds": thresholds}
 
 
+ATTACK_TACTICS = [
+    "reconnaissance", "resource_development", "initial_access", "execution", "persistence",
+    "privilege_escalation", "defense_evasion", "credential_access", "discovery", "lateral_movement",
+    "collection", "command_and_control", "exfiltration", "impact", "none",
+]
+
+
+def attack_heatmap():
+    """ATT&CK tactic counts from the dedicated classification runs."""
+    groups = []
+    for source, label in (("swarm", "OpenAI swarm"), ("cybench", "Sanctioned CTF"), ("swe", "Coding agents")):
+        path = RESULTS / f"attack_{source}.jsonl"
+        rows = [json.loads(line) for line in path.open()] if path.exists() else []
+        counts = collections.Counter(row["tactic"] for row in rows if row.get("tactic") in ATTACK_TACTICS)
+        groups.append({"source": source, "label": label, "n": sum(counts.values()), "counts": counts})
+    return {"tactics": ATTACK_TACTICS, "groups": groups}
+
+
 def examples(stage, n=6):
     rows = [r for r in load("swarm") if r.get("stage") == stage and r["verdict"] == "block"]
     rows.sort(key=lambda r: -r["stage_probs"][stage])
@@ -131,6 +149,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/report":
             return self.send(200, report.render(q.get("session") or drift()["session"]), "text/html")
         routes = {"/api/stats": stats, "/api/timelapse": timelapse, "/api/noise": noise,
+                  "/api/attack": attack_heatmap,
                   "/api/drift": lambda: drift(q.get("session")), "/api/sessions": report.sessions,
                   "/api/livehunt":lambda: LIVE_HUNT[int(q.get("since", 0)):],
                   "/api/livehunt/start": lambda: start_live_hunt(int(q.get("n", 1500))),
