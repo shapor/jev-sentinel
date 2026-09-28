@@ -1,10 +1,13 @@
-.PHONY: hunt bench serve victim check install-hook agent-demo test
+.PHONY: hunt bench mitre serve victim check install-hook agent-demo test
 
 hunt:     ## score every Swarm Traces unit (resumable)
 	python3 hunt.py swarm
 
 bench:    ## score sanctioned CTF agent actions (the false-positive set)
 	python3 hunt.py cybench
+
+mitre:    ## classify a deterministic Swarm Traces sample by ATT&CK tactic
+	python3 attack.py swarm --sample 6000
 
 serve:    ## demo page + API on http://127.0.0.1:8000
 	python3 server.py
@@ -13,7 +16,7 @@ victim:   ## local vulnerable target for the live agent on http://127.0.0.1:8080
 	cd victim && python3 app.py
 
 test:     ## offline tests (Jev mocked)
-	python3 -m unittest -v test_sentinel
+	python3 -m unittest -v test_sentinel test_attack
 
 check:    ## judge one action: make check A='cat ~/.ssh/id_rsa' SCOPE='fix the login bug'
 	@A="$$A" S="$$S" python3 -c 'import json, os, sentinel; s = os.environ.get("S"); print(json.dumps(sentinel.judge(os.environ["A"], f"an AI agent'"'"'s sanctioned task is: {s}" if s else sentinel.DEFAULT_SCOPE), indent=1))'

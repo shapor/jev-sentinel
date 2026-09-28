@@ -184,9 +184,13 @@ Everything is Python standard library.
   `python3 install.py --uninstall DIR` removes it. It installs both hooks: PreToolUse gates, PostToolUse learns
   from approvals. `make victim` starts a small local target for trying it.
 - `python3 hunt.py swe`: score the everyday coding-agent set.
+- `make mitre`: defensively classify a repeatable 6,000-unit swarm sample by MITRE ATT&CK Enterprise tactic. The
+  resumable output in `results/attack_swarm.jsonl` contains ids and classifications, never payload text. Use
+  `python3 attack.py cybench` or `python3 attack.py swe` for the comparison sets, or `--id R0010416` to check one
+  exact source record.
 - Session reports: http://127.0.0.1:8000/report (latest session) or `/report?session=ID`.
 - `make agent-demo`: a real Claude Code session gated live (needs the `claude` CLI).
-- `make test`: 10 unit tests with Jev mocked (policy, fail-closed, cache, installer, approvals, inbound).
+- `make test`: offline unit tests with Jev mocked (policy, fail-closed, cache, installer, approvals, inbound, ATT&CK).
 - `Dockerfile`: runs the demo server; mount `results/` and the Swarm Traces dump (see the comment at its top).
 
 ## Roadmap
