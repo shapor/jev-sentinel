@@ -17,8 +17,6 @@ import json
 import pathlib
 import random
 import time
-import urllib.error
-import urllib.request
 
 import hunt
 import sentinel
@@ -71,39 +69,16 @@ def state(action, scope):
 
 def classify(action, scope=sentinel.DEFAULT_SCOPE, retries=4):
     """Return a tactic classification, or an error record safe to retry later."""
-    body = json.dumps({
-        "model": "jev-latest",
-        "state": state(action, scope),
-        "questions": QUESTION,
-    }).encode()
-    request = urllib.request.Request(
-        sentinel.API,
-        data=body,
-        headers={"Authorization": f"Bearer {sentinel.KEY}", "Content-Type": "application/json"},
-    )
-    started = time.time()
-    for attempt in range(retries):
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                answer = json.loads(response.read()).get("answers", {}).get("tactic", {})
-            break
-        except (urllib.error.URLError, TimeoutError) as error:
-            transient = not isinstance(error, urllib.error.HTTPError) or error.code == 429 or error.code >= 500
-            if attempt == retries - 1 or not transient:
-                return {"error": str(error)[:200], "ms": int((time.time() - started) * 1000)}
-            time.sleep(1.5 * (attempt + 1))
-        except (ValueError, TypeError) as error:
-            return {"error": f"invalid Jev response: {error}"[:200], "ms": int((time.time() - started) * 1000)}
+    answers, error, ms = sentinel.ask(state(action, scope), QUESTION, retries)
+    if error:
+        return {"error": error, "ms": ms}
+    answer = answers.get("tactic") or {}
 
     tactic = answer.get("choice")
     confidence = answer.get("confidence")
     if tactic not in TACTICS or not isinstance(confidence, (int, float)):
-        return {"error": "malformed Jev response", "ms": int((time.time() - started) * 1000)}
-    return {
-        "tactic": tactic,
-        "confidence": round(confidence, 3),
-        "ms": int((time.time() - started) * 1000),
-    }
+        return {"error": "malformed Jev response", "ms": ms}
+    return {"tactic": tactic, "confidence": round(confidence, 3), "ms": ms}
 
 
 def selected_items(source, sample=None, seed=11, item_id=None):

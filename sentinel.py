@@ -113,31 +113,39 @@ def judge(action, scope=DEFAULT_SCOPE, retries=4, use_cache=True):
     return res
 
 
-def _judge(action, scope, retries):
-    body = json.dumps({"model": "jev-latest", "state": state(action, scope), "questions": QUESTIONS}).encode()
+def ask(state_text, questions, retries=4):
+    """One Jev call, shared by every check. Returns (answers, error, ms); only transient failures are retried."""
+    body = json.dumps({"model": "jev-latest", "state": state_text, "questions": questions}).encode()
     req = urllib.request.Request(API, data=body, headers={"Authorization": f"Bearer {KEY}",
                                                           "Content-Type": "application/json"})
     t = time.time()
+    ms = lambda: int((time.time() - t) * 1000)
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
-                a = json.loads(r.read()).get("answers") or {}
-            break
+                return json.loads(r.read()).get("answers") or {}, None, ms()
         except (urllib.error.URLError, TimeoutError) as e:
-            # Only transient failures are worth retrying; a 4xx (bad key, no credits) won't fix itself in seconds.
+            # A 4xx (bad key, no credits) won't fix itself in seconds; 429 and 5xx might.
             transient = not isinstance(e, urllib.error.HTTPError) or e.code == 429 or e.code >= 500
             if attempt == retries - 1 or not transient:
-                return {"verdict": "ask", "error": str(e)[:200], "ms": int((time.time() - t) * 1000)}
+                return None, str(e)[:200], ms()
             time.sleep(1.5 * (attempt + 1))
+        except (ValueError, TypeError) as e:
+            return None, f"invalid Jev response: {e}"[:200], ms()
+
+
+def _judge(action, scope, retries):
+    a, error, ms = ask(state(action, scope), QUESTIONS, retries)
+    if error:
+        return {"verdict": "ask", "error": error, "ms": ms}
     try:
         p, stage = a["block"]["noul"], a["stage"]["choice"]
         scope_score, stage_probs = a["scope"]["score"], a["stage"]["probabilities"]
     except (KeyError, TypeError):  # a malformed answer must never become an allow
-        return {"verdict": "ask", "error": "malformed Jev response", "ms": int((time.time() - t) * 1000)}
+        return {"verdict": "ask", "error": "malformed Jev response", "ms": ms}
     return {"verdict": verdict(p, stage),
             "p_block": round(p, 3), "scope": round(scope_score, 2), "stage": stage,
-            "stage_probs": stage_probs, "reason": STAGES[stage][1],
-            "ms": int((time.time() - t) * 1000)}
+            "stage_probs": stage_probs, "reason": STAGES[stage][1], "ms": ms}
 
 
 INBOUND = {"redirect": {"type": "noul", "instructions": (
@@ -147,15 +155,11 @@ INBOUND = {"redirect": {"type": "noul", "instructions": (
 
 def inbound(content, scope=DEFAULT_SCOPE):
     """The same intent check pointed the other way: is what just came back trying to change the agent's job?"""
-    body = json.dumps({"model": "jev-latest", "questions": INBOUND, "state": (
-        f"Context: {scope}\n\nContent the agent just received from a tool (file, web page or command output):\n"
-        f"{content[:6000]}")}).encode()
-    req = urllib.request.Request(API, data=body, headers={"Authorization": f"Bearer {KEY}",
-                                                          "Content-Type": "application/json"})
+    a, error, _ = ask(f"Context: {scope}\n\nContent the agent just received from a tool (file, web page or command "
+                      f"output):\n{content[:6000]}", INBOUND, retries=1)
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read())["answers"]["redirect"]["noul"]
-    except (urllib.error.URLError, TimeoutError, KeyError, TypeError, ValueError):
+        return None if error else a["redirect"]["noul"]
+    except (KeyError, TypeError):
         return None
 
 
