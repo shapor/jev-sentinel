@@ -5,3 +5,5 @@ __pycache__/
 .venv/
 results/
 notes/
+# the gzipped result files we deliberately publish
+!published/*.jsonl.gz
