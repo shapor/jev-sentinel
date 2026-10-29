@@ -13,6 +13,7 @@ import json
 import pathlib
 import random
 import re
+import threading
 import time
 
 import data
@@ -335,6 +336,7 @@ COMBO_AT = 0.7
 ARMS = {"+".join(k for k, v in zip(COMBO, on) if v) or "base": dict(zip(COMBO, on))
         for on in itertools.product((True, False), repeat=len(COMBO))}
 FROZEN = "+".join(COMBO)
+OUT_OF_CREDIT = threading.Event()  # a 402 stops every trajectory instead of burning through the rest
 
 
 def clauses(intent):
@@ -372,6 +374,7 @@ def combo_score(p, arm, flags):
         [jev(state(p, "intent_plus_calls", rubric, c, marks), {"limit": LIMIT_Q})
          for c in (limits(p["intent"]) if cfg["limits"] else [])]
     if err := next((r["error"] for r in rs if "error" in r), None):
+        OUT_OF_CREDIT.set() if "402" in err else None
         return {"error": err}
     h, lim = rs[0], [r["q_limit"] for r in rs[1:]]
     sf = (h["scope"] / 4 + max(h[f"q_{q}"] for q in FOCUSED)) / 2
@@ -387,7 +390,7 @@ def run_combo(arm=FROZEN, workers=6):
     def trajectory(pts):
         rows, flagged = [], []
         for _, step in itertools.groupby(pts, key=lambda p: len(p["prior"])):
-            broken = ARMS[arm]["flags"] and any("error" in r for r in rows)  # the flag state is unknown from here
+            broken = OUT_OF_CREDIT.is_set() or ARMS[arm]["flags"] and any("error" in r for r in rows)  # state unknown
             new = [{"traj": p["traj"], "call": p["call"],
                     **({"error": "after an earlier error"} if broken else combo_score(p, arm, flagged))} for p in step]
             flagged += [r.get("x", 0) >= COMBO_AT for r in new]
@@ -407,6 +410,8 @@ def run_combo(arm=FROZEN, workers=6):
     errors = sum("error" in r for r in rows)
     print(f"combo {tag}: {len(rows)} calls, {errors} errors, {sum(r.get('x', 0) >= COMBO_AT for r in rows)} flagged, "
           f"{time.time() - t0:.0f}s", flush=True)
+    if OUT_OF_CREDIT.is_set():
+        raise SystemExit("stopped: Jev returned 402 (payment required)")
 
 
 if __name__ == "__main__":

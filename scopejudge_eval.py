@@ -487,25 +487,27 @@ def combo_report():
               f"$/1k={e['cost_per_1k']:.3f} lat={e['latency']}"
               + (f" frozen-this={e['frozen_minus_this']:+.3f} ciF=({e['frozen_minus_this_ci_family'][0]:+.3f},"
                  f"{e['frozen_minus_this_ci_family'][1]:+.3f})" if name != sj.FROZEN else ""), flush=True)
-    fx = at(frozen)
-    out["frozen"] = {"arm": sj.FROZEN, "threshold": sj.COMBO_AT,
-                     "dreadnode_fixed": dreadnode_score(fx, "combo_fixed"),
-                     "vs_glm_full_ci_family": boot_f1(fx, by="family")}
-    for k in FAMILY_SCHEMES:  # secondary: the threshold fitted on the other folds; and honest arm selection
-        pred = oof(frozen, SCHEMES[k])
-        d = describe(pred, SCHEMES[k])
-        out["frozen"][f"infold_thr {k}"] = {**d, "ci95_family": boot_f1(pred, by="family"),
-                                           "thresholds": sorted({round(r["thr"], 3) for r in pred})}
-        sel, chosen = select_arm({a: arms[a] for a in arms if len(arms[a]) == len(frozen)}, SCHEMES[k])
-        out["frozen"][f"arm_select {k}"] = {**describe(sel, SCHEMES[k]), "ci95_family": boot_f1(sel, by="family"),
-                                           "chosen": chosen}
-        print(fmt(f"frozen in-fold thr {k}", {**d, "fold_f1": d["fold_f1"][:5]}),
-              f"thr={out['frozen'][f'infold_thr {k}']['thresholds'][:6]}")
-        print(fmt(f"arm selection {k}", {**out["frozen"][f"arm_select {k}"], "fold_f1": []}), dict(chosen),
-              flush=True)
-        if k in ("family5 s0", "lofo"):
-            out["frozen"][f"dreadnode infold_thr {k}"] = dreadnode_score(pred, f"combo_infold_{k.replace(' ', '_')}")
-    print("dreadnode scorer, frozen @0.7:", out["frozen"]["dreadnode_fixed"])
+    complete = {a: rows for a, rows in arms.items() if len(rows) == len(frozen)}
+    for arm in [a for a in ("callfirst+limits+flags", "callfirst+flags") if a in complete]:  # the two frozen candidates
+        rows, tag = complete[arm], arm.replace("+", "_")
+        fx = at(rows)
+        o = out[arm] = {"threshold": sj.COMBO_AT, "dreadnode_fixed": dreadnode_score(fx, f"combo_fixed_{tag}"),
+                        "per_family_fixed": by_group(fx, "family")}  # = leave-one-family-out: nothing is fitted
+        for k in FAMILY_SCHEMES:  # secondary: the threshold fitted on the other folds
+            pred = oof(rows, SCHEMES[k])
+            d = describe(pred, SCHEMES[k])
+            o[f"infold_thr {k}"] = {**d, "ci95_family": boot_f1(pred, by="family"),
+                                    "thresholds": sorted({round(r["thr"], 3) for r in pred})}
+            print(fmt(f"{arm} in-fold thr {k}", {**d, "fold_f1": d["fold_f1"][:5]}),
+                  f"thr={o[f'infold_thr {k}']['thresholds'][:6]}")
+            if k in ("family5 s0", "lofo"):
+                o[f"dreadnode infold_thr {k}"] = dreadnode_score(pred, f"combo_infold_{tag}_{k.replace(' ', '_')}")
+        print(f"dreadnode scorer, {arm} @{sj.COMBO_AT}:", o["dreadnode_fixed"], flush=True)
+    for k in FAMILY_SCHEMES:  # honest arm selection among every complete arm
+        sel, chosen = select_arm(complete, SCHEMES[k])
+        out[f"arm_select {k}"] = {**describe(sel, SCHEMES[k]), "ci95_family": boot_f1(sel, by="family"),
+                                  "chosen": chosen}
+        print(fmt(f"arm selection {k}", {**out[f"arm_select {k}"], "fold_f1": []}), dict(chosen), flush=True)
     (sj.OUT / "combo.json").write_text(json.dumps(out, indent=1, default=str))
 
 
