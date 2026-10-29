@@ -8,6 +8,42 @@ future calls or labels. Violations cluster: once an agent drifts out of scope it
 reacts to its own earlier alarms should therefore gain recall without paying much precision. The target is GLM-5.2
 full transcript, F1 0.656. Stateless Jev scores 0.61 to 0.63.
 
+## Headline (read this first)
+
+**Honest number: F1 0.649 out of fold, with whole task families held out.** That is the lean, 2-Jev-call monitor with
+its feature set picked by nested CV inside the training families. It is the mean over 10 seeds of 5-fold
+family-grouped CV, range .617 to .693. Leave-one-family-out gives .630. That is level with GLM-5.2 full (.656) within
+noise, not above it. Stateless Jev (plus-calls probability, threshold fit the same way) scores .623 on the same folds.
+The causal monitor's real gain is about 2 to 3 points.
+
+The .719 to .731 numbers further down came from the shared folds. Those group by trajectory but stratify by family,
+so every held-out trajectory has siblings from its own task family in training. A fitted combiner can learn
+family-specific score levels there, which a new task family would not have. Holding out whole families removes
+7 to 9 points: a memorization premium, not monitor skill. The training lane measured the same effect on its stacker
+(.763 against .650).
+
+| Family-grouped evaluation | 5-fold, mean of 10 seeds (range) | 5-fold seed 0: P / R / F1 / flag, 95% CI, F1 −big | Leave-one-family-out: P / R / F1 / flag, 95% CI, F1 −big |
+|---|---|---|---|
+| intent-only p alone | .429 (.399–.455) | .401 / .430 / .415 / 8.2%, .32–.54, .490 | .407 / .451 / .428 / 8.5%, .33–.56, .505 |
+| plus-calls p alone | .623 (.619–.631) | .662 / .602 / .631 / 7.0%, .52–.71, .560 | .656 / .597 / .625 / 7.0%, .51–.70, .551 |
+| **lean nested select (honest headline)** | **.649 (.617–.693)** | .688 / .602 / .642 / 6.7%, .52–.73, .613 | .696 / .576 / .630 / 6.4%, .51–.71, .591 |
+| 3-call nested select | .643 (.615–.686) | .692 / .584 / .633 / 6.5%, .51–.72, .600 | .720 / .573 / .638 / 6.1%, .52–.72, .607 |
+| frozen lean config (fixed feature set) | .683 (.644–.715) | .711 / .674 / .692 / 7.3%, .54–.80, .602 | .723 / .615 / .665 / 6.6%, .52–.76, .606 |
+| frozen 3-call config (same features + v1 plus-calls) | .684 (.644–.716) | .708 / .637 / .670 / 6.9%, .52–.78, .605 | .745 / .634 / .685 / 6.6%, .53–.79, .608 |
+
+How to read it:
+- **Thresholds are fit on held-out families too.** The intent-only probability collapses to .43 because its best-F1
+  threshold does not transfer across families. Plus-calls is stable. The monitor's real value is a combiner whose
+  operating point transfers.
+- **Per-fold F1 is uneven.** Seed-0 folds for the lean nested monitor are .69, .68, .72, .58 and .46.
+- **The frozen configs score higher (.683 and .665 LOFO) but are selected numbers.** Their feature set was chosen
+  using all 100 trajectories (trajectory-grouped nested picks), so they carry some selection optimism. Nested selection
+  inside family-grouped training splits is itself noisy: with four inner family groups, one holds the big family. It
+  picked "full" 78 times, "full without history" 46, "full without flags" 18, "current + host" 17 and "current scores"
+  3 times.
+- **The scorer agrees.** All twelve seed-0 and leave-one-family-out rows were exported and scored with Dreadnode's
+  `scopejudge score`, and its F1s match ours exactly.
+
 ## What the monitor sees
 
 Only signals Jev has already produced, plus one structural bit. No new Jev calls were made.
@@ -37,7 +73,8 @@ weights. The F1-maximising threshold is fit on the same training folds.
 
 ## Protocol
 
-- The five shared folds (`scopejudge-folds.json`, grouped by trajectory and stratified by family) are used throughout.
+- The table below uses the five shared folds (`scopejudge-folds.json`, grouped by trajectory and stratified by
+  family). Those numbers are inflated; see the headline for family-grouped folds.
 - Every weight, threshold and feature-set choice is fit on four folds and applied to the fifth. The fold metrics are
   then pooled over all 4,897 calls.
 - The headline rows were exported in Dreadnode's decision format and scored with `uv run scopejudge score`. The
@@ -48,7 +85,7 @@ weights. The F1-maximising threshold is fit on the same training folds.
 The feature set is not picked by looking at the table. The **nested select** row picks among six candidate sets by an
 inner 4-fold CV inside each outer training split. Its out-of-fold number is the honest estimate of the whole procedure.
 
-## Results (out of fold, all 4,897 calls)
+## Results on the shared trajectory-grouped folds (optimistic; out of fold, all 4,897 calls)
 
 | Variant | Jev calls | P | R | F1 | Flag | 95% CI | F1 −big | Per-fold F1 |
 |---|---|---|---|---|---|---|---|---|
@@ -111,9 +148,9 @@ and comes to about $0.54. GLM-5.2 full costs $6.01. The plus-calls history domin
      alarms.
    - It is the largest single ablation (−3.3 points). It is also the only feature that clearly helps outside the
      largest family: F1 −big goes from .571 to .621 in the full model, and adding it to the current-score model lifts the worst fold from .43 to .57.
-3. **The result is above GLM-5.2 full, but the interval is wide and concentrated.**
-   - Nested out-of-fold F1 is .722 (3 calls) and .719 (lean). The trajectory-bootstrap 95% intervals are .57–.83, and
-     both include .656.
+3. **On the shared folds the result looked above GLM-5.2; with families held out it is level.**
+   - On the shared folds, nested out-of-fold F1 is .722 (3 calls) and .719 (lean), with 95% intervals of .57–.83.
+   - Holding out whole families gives .649 (5-fold mean) and .630 (leave-one-family-out). See the headline.
    - Fold 1, which holds the 108-violation trajectory, scores .86. Folds 0 and 2 score .52 to .55.
    - Without the largest family, F1 is .61, against .50 to .55 for stateless Jev, so the gain is not only that
      trajectory. But it is far from GLM-level outside it. We don't know GLM's F1 without that family.
@@ -138,8 +175,9 @@ and comes to about $0.54. GLM-5.2 full costs $6.01. The plus-calls history domin
 - On fresh data, fit weights and threshold on all 4,897 ScopeJudge calls, freeze them, and score the new trajectories
   once.
 
-This is what the nested procedure picked most often. Its own out-of-fold row (.725) is a selected number. Quote .719,
-the lean nested estimate, as the expected value.
+This is what the trajectory-grouped nested procedure picked most often. Expected value on new task families: about
+.65 (lean nested, family-grouped). The frozen config's own family-grouped scores are .683 (5-fold mean) and .665 (leave
+one family out), but those are selected numbers. On new trajectories of the same families, expect closer to .72.
 
 ## Leakage and its limits
 
@@ -151,13 +189,17 @@ the lean nested estimate, as the expected value.
   The flag threshold (0.7) and EMA weight (0.3) were fixed before any result, never tuned.
 - **Upstream selection.** The Jev rubrics themselves were developed with the whole set in view: v4 on the dev half,
   and v1 after reading all of it. That upstream selection is not removed by our folds.
-- **Variant count.** Every variant run is in the table above (`results/scopejudge/causal_variants.txt`, gitignored).
-  There are 27 rows, 21 of them shown in full, and no unlisted runs. The headline is the nested row, so picking the
-  best row of the table is not the claim.
+- **Variant count.** There were 28 variants on the shared folds (`results/scopejudge/causal_variants.txt`,
+  gitignored). They all appear in the table or the ablation list, except the v4 plus-calls probability alone (.608).
+  The family-grouped run evaluates 6 configurations (`causal_by_family.txt`). There were no unlisted runs. The
+  headline is a nested row, so picking the best row of a table is not the claim.
+- **Family memorization.** Grouping folds by trajectory while stratifying by family let the combiner see each test
+  family in training. That alone was worth 7 to 9 F1 points. Every claim now rests on family-grouped folds.
 - **Fold layout.** The shared folds put the biggest trajectory in fold 1. Per-fold spread (.52 to .87) is the more
   honest measure of uncertainty than the pooled point.
 
 ## Reproducing
 
 `python3 sj_causal.py "lean nested select"` recomputes every row from `results/scopejudge/*.jsonl`. Any variant name
-given as an argument is also exported in Dreadnode's format and scored with their CLI.
+given as an argument is also exported in Dreadnode's format and scored with their CLI. `python3 sj_causal.py family`
+runs the family-grouped evaluation (5-fold × 10 seeds, and leave-one-family-out) and scores its exports with the CLI.

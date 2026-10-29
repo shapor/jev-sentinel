@@ -151,22 +151,32 @@ def hysteresis(train):
     return lambda r: 1.0 if r["s"] >= t1 or (r["f"]["flagged"] and r["s"] >= t2) else 0.0
 
 
-def nested(candidates):
-    """Pick the feature set by inner 4-fold CV on the training folds only, then fit it on all training folds."""
+def nested(candidates, by_family=False):
+    """Pick the feature set by inner CV on the training folds only, then fit it on all training folds. Inner folds are
+    the remaining outer folds, or (by_family) four groups of whole training families."""
     def model(train):
+        if by_family:
+            train = regroup(train, 4, 0)
         def inner(feats):
-            preds = oof(train, lr_model(feats), folds=sorted({r["fold"] for r in train}))
-            return ev.metrics(preds, lambda r: r["pred"])["f1"]
+            return ev.metrics(oof(train, lr_model(feats)), lambda r: r["pred"])["f1"]
         best = max(candidates, key=lambda c: inner(candidates[c]))
-        print(f"   outer fold without {sorted({0, 1, 2, 3, 4} - {r['fold'] for r in train})}: picked {best}", flush=True)
+        print(f"   picked {best}", flush=True)
         return lr_model(candidates[best])(train)
     return model
 
 
-def oof(data, model, folds=range(5)):
-    """Fit model + best-F1 threshold on four folds, predict the fifth."""
+def regroup(data, k, seed):
+    """Reassign folds so whole task families are held out together (k=None: leave one family out)."""
+    fams = sorted({r["family"] for r in data})
+    random.Random(seed).shuffle(fams)
+    fold = {f: i if k is None else i % k for i, f in enumerate(fams)}
+    return [{**r, "fold": fold[r["family"]]} for r in data]
+
+
+def oof(data, model):
+    """Fit model + best-F1 threshold on all folds but one, predict that one; every fold in turn."""
     out = []
-    for k in folds:
+    for k in sorted({r["fold"] for r in data}):
         train = [r for r in data if r["fold"] != k]
         score = model(train)
         t = ev.pick([{"gold": r["gold"], "x": score(r)} for r in train], "x", "f1")
@@ -177,7 +187,8 @@ def oof(data, model, folds=range(5)):
 def report(name, preds, export=False):
     m = ev.metrics(preds, lambda r: r["pred"])
     nobig = ev.metrics([r for r in preds if r["family"] != BIG_FAMILY], lambda r: r["pred"])
-    folds = [ev.metrics([r for r in preds if r["fold"] == k], lambda r: r["pred"])["f1"] for k in range(5)]
+    folds = [ev.metrics([r for r in preds if r["fold"] == k], lambda r: r["pred"])["f1"]
+             for k in sorted({r["fold"] for r in preds})][:5]  # leave-one-family-out: per-fold list not meaningful
     lo, hi = ev.boot_f1(preds)
     line = (f"{name:34s} P={m['precision']:.3f} R={m['recall']:.3f} F1={m['f1']:.3f} flag={m['flag_rate']:.3f} "
             f"CI=({lo:.3f},{hi:.3f}) F1-big={nobig['f1']:.3f} folds={' '.join(f'{f:.2f}' for f in folds)}")
@@ -195,14 +206,41 @@ def report(name, preds, export=False):
     return line
 
 
-def main():
-    data, lean = rows(), rows("v4")
+def candidate_sets():
     allf = [n for g in GROUPS.values() for n in g]
     sets = {"cur_v1+host": GROUPS["cur_v1"] + GROUPS["host"], "full": allf,
             "full-history": [n for n in allf if n not in GROUPS["history"]],
             "full-flags": [n for n in allf if n not in GROUPS["flags"]],
             "full-host": [n for n in allf if n != "host"], "cur_all": GROUPS["cur_v1"] + GROUPS["cur_extra"]}
     lean_sets = {k: [n for n in v if n != "v4"] for k, v in sets.items()}  # in the lean rows "ipc" already is v4
+    return allf, sets, lean_sets
+
+
+def by_family():
+    """The same configurations with whole task families held out: 5-fold over 10 seeds, and leave-one-family-out."""
+    data, lean = rows(), rows("v4")
+    _, sets, lean_sets = candidate_sets()
+    configs = {"base io p": (data, single("io")), "base ipc p": (data, single("ipc")),
+               "frozen lean full-history": (lean, lr_model(lean_sets["full-history"])),
+               "frozen 3-call full-history": (data, lr_model(sets["full-history"])),
+               "lean nested select": (lean, nested(lean_sets, True)), "3-call nested select": (data, nested(sets, True))}
+    with (sj.OUT / "causal_by_family.txt").open("w") as log:
+        for name, (rs, model) in configs.items():
+            f1s = []
+            for seed in range(10):
+                preds = oof(regroup(rs, 5, seed), model)
+                f1s.append(ev.metrics(preds, lambda r: r["pred"])["f1"])
+                if seed == 0:
+                    log.write(report(f"fam5 s0 {name}", preds, export=True) + "\n")
+            line = f"fam5 10 seeds {name:28s} mean={sum(f1s) / 10:.3f} range=({min(f1s):.3f},{max(f1s):.3f})"
+            print(line, flush=True)
+            log.write(line + "\n")
+            log.write(report(f"lofo {name}", oof(regroup(rs, None, 0), model), export=True) + "\n")
+
+
+def main():
+    data, lean = rows(), rows("v4")
+    allf, sets, lean_sets = candidate_sets()
     variants = {
         "base io p": single("io"), "base ipc p": single("ipc"), "base v4 ipc p": single("v4"),
         "base v4 focus": single("focus"),
@@ -230,4 +268,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    by_family() if sys.argv[1:2] == ["family"] else main()
