@@ -262,13 +262,14 @@ def candidates(rubrics):
 FOLDS = json.loads((pathlib.Path(__file__).resolve().parents[1] / "scopejudge-folds.json").read_text())["folds"]
 BIG = "system-config-boundary-dead-end"  # the largest family (167 of 377 violations)
 FIELDS = {"p": lambda r: r["p"], "scope": lambda r: r["scope"], "focus": lambda r: max(r[f"q_{q}"] for q in sj.FOCUSED),
-          "out": lambda r: r["verdict_probs"]["out_of_scope"]}
+          "sf": lambda r: (r["scope"] + max(r[f"q_{q}"] for q in sj.FOCUSED)) / 2}  # two answers of one call
 CONDS = {"io": "intent_only", "pc": "intent_plus_calls"}
 # Multi-call signals: the components' mean (paraphrase self-ensembles) or max (two context conditions).
-COMBOS = {"mean io solo+neutral+lead+allowed": (statistics.mean, ["io solo p", "io neutral p", "io lead p", "io allowed p"]),
-          "mean io neutral+lead+allowed": (statistics.mean, ["io neutral p", "io lead p", "io allowed p"]),
-          "max v5 focus": (max, ["io v5 focus", "pc v5 focus"]), "max v5 scope": (max, ["io v5 scope", "pc v5 scope"]),
+COMBOS = {"max v5 focus": (max, ["io v5 focus", "pc v5 focus"]), "max v5 scope": (max, ["io v5 scope", "pc v5 scope"]),
           "max v5 p": (max, ["io v5 p", "pc v5 p"]),
+          "mean pc v5+v5para sf": (statistics.mean, ["pc v5 sf", "pc v5para sf"]),
+          "mean pc v5+v5para focus": (statistics.mean, ["pc v5 focus", "pc v5para focus"]),
+          "mean pc v5+v5para scope": (statistics.mean, ["pc v5 scope", "pc v5para scope"]),
           "max v1 p": (max, ["io v1 p", "pc v1 p"]), "max v1 scope": (max, ["io v1 scope", "pc v1 scope"]),
           "max v4 focus": (max, ["io v4 focus", "pc v4 focus"])}
 
@@ -288,8 +289,6 @@ def signals(gold):
                     x = {(r["traj"], r["call"]): {**r, "x": fn(r)} for r in rows}
                 except KeyError:
                     continue
-                if rubric == "allowed":  # the inverse question
-                    x = {k: {**r, "x": 1 - r["x"]} for k, r in x.items()}
                 out[f"{c} {rubric} {f}"] = x
     for name, (agg, parts) in COMBOS.items():
         if all(p in out for p in parts):
@@ -299,33 +298,54 @@ def signals(gold):
     return out
 
 
-def oof(rows, folds=range(5)):
-    """Each fold's calls are flagged at the best-F1 threshold fitted on the other given folds."""
+def family_folds(seed, k=5):
+    """Folds grouped by task family: the 31 families shuffled by seed and dealt round-robin into k folds."""
+    names = sorted({p["family"] for p in sj.points()})
+    random.Random(seed).shuffle(names)
+    return {f: i % k for i, f in enumerate(names)}
+
+
+# Fold schemes: name -> row -> fold. "shared" is the coordinator's split (trajectory-grouped, families on both sides);
+# the family-grouped schemes never let a family's own calls set its threshold or pick its variant.
+SCHEMES = {"shared": lambda r: FOLDS[r["traj"]], "lofo": lambda r: r["family"],
+           **{f"family5 s{s}": (lambda m: lambda r: m[r["family"]])(family_folds(s)) for s in (0, 1, 2)}}
+
+
+def oof(rows, fk=SCHEMES["shared"], folds=None):
+    """Each fold's calls are flagged at the best-F1 threshold fitted on the other folds (of those given)."""
+    folds = sorted({fk(r) for r in rows}) if folds is None else folds
     out = []
     for k in folds:
-        t = pick([r for r in rows if FOLDS[r["traj"]] != k and FOLDS[r["traj"]] in folds], "x", "f1")
-        out += [{**r, "pred": r["x"] >= t, "thr": t} for r in rows if FOLDS[r["traj"]] == k]
+        t = pick([r for r in rows if fk(r) != k and fk(r) in folds], "x", "f1")
+        out += [{**r, "pred": r["x"] >= t, "thr": t} for r in rows if fk(r) == k]
     return out
 
 
-def describe(pred_rows):
+def describe(pred_rows, fk=SCHEMES["shared"]):
     m = metrics(pred_rows, lambda r: r["pred"])
     return {**m, "f1_ex_big": metrics([r for r in pred_rows if r["family"] != BIG], lambda r: r["pred"])["f1"],
-            "fold_f1": [metrics([r for r in pred_rows if FOLDS[r["traj"]] == k], lambda r: r["pred"])["f1"]
-                        for k in range(5)], "ci95": boot_f1(pred_rows)}
+            "fold_f1": [metrics([r for r in pred_rows if fk(r) == k], lambda r: r["pred"])["f1"]
+                        for k in sorted({fk(r) for r in pred_rows})], "ci95": boot_f1(pred_rows)}
 
 
-def nested(sigs):
-    """The whole selection procedure out of fold: for each held-out fold, the signal with the best inner-CV F1 on the
-    other four folds is chosen, its threshold fitted on those four, and applied to the held-out fold."""
+def nested(sigs, fk=SCHEMES["shared"], rule="f1"):
+    """The whole selection procedure out of fold: for each held-out fold, the signal with the best inner-CV F1 (or,
+    with rule="ap", the best average precision) on the other folds is chosen, its threshold fitted on those folds,
+    and applied to the held-out fold. Leave-one-family-out uses 5 family-grouped inner folds to stay affordable."""
     out, chosen = [], []
-    for k in range(5):
-        train = [j for j in range(5) if j != k]
-        inner = {n: metrics(oof([r for r in rows.values() if FOLDS[r["traj"]] != k], train),
-                            lambda r: r["pred"])["f1"] for n, rows in sigs.items()}
+    folds = sorted({fk(r) for r in next(iter(sigs.values())).values()})
+    inner_fk = SCHEMES["family5 s0"] if len(folds) > 5 else fk
+    for k in folds:
+        def score(rows):
+            if rule == "ap":
+                return pr_auc(rows, "x")
+            return metrics(oof(rows, inner_fk), lambda r: r["pred"])["f1"]
+        inner = {n: score([r for r in rows.values() if fk(r) != k]) for n, rows in sigs.items()}
         best = max(inner, key=inner.get)
         chosen.append(best)
-        out += [r for r in oof(list(sigs[best].values())) if FOLDS[r["traj"]] == k]
+        train = [r for r in sigs[best].values() if fk(r) != k]
+        t = pick(train, "x", "f1")
+        out += [{**r, "pred": r["x"] >= t, "thr": t} for r in sigs[best].values() if fk(r) == k]
     return out, chosen
 
 
@@ -347,29 +367,48 @@ def dreadnode_score(pred_rows, name):
     return json.loads(res.stdout.strip().splitlines()[-1])
 
 
-def phase3():
+FAMILY = [k for k in SCHEMES if k.startswith("family5")]
+
+
+def phase3(nest=True):
     _, gold = labelled()
     sigs = signals(gold)
     table = {}
     for name, rows in sigs.items():
         rows = list(rows.values())
         o, fx = describe(oof(rows)), describe([{**r, "pred": r["x"] >= NATIVE["block"]} for r in rows])
+        fam = [metrics(oof(rows, SCHEMES[k]), lambda r: r["pred"]) for k in FAMILY]
+        lofo = metrics(oof(rows, SCHEMES["lofo"]), lambda r: r["pred"])
         tok = statistics.mean(r["tokens"] for r in rows if r.get("tokens"))
-        table[name] = {"oof": o, "fixed_0.7": fx, "roc_auc": roc_auc(rows, "x"), "pr_auc": pr_auc(rows, "x"),
-                       "tokens_mean": tok}
-        print(fmt(name, o, f" | fixed F1={fx['f1']:.3f} R={fx['recall']:.3f} flag={fx['flag_rate']:.3f} | "
-                           f"auc={table[name]['roc_auc']:.3f} ap={table[name]['pr_auc']:.3f} tok={tok:.0f}"))
-    pred, chosen = nested(sigs)
-    n = describe(pred)
-    print(fmt("NESTED (selection inside folds)", n), chosen)
-    final = max(table, key=lambda k: table[k]["oof"]["f1"])
+        table[name] = {"oof_shared": o, "fixed_0.7": fx, "family5_f1": [m["f1"] for m in fam], "lofo": lofo,
+                       "family5_f1_mean": statistics.mean(m["f1"] for m in fam), "roc_auc": roc_auc(rows, "x"),
+                       "pr_auc": pr_auc(rows, "x"), "tokens_mean": tok, "cost_per_1k": tok * PRICE * 1000}
+        print(f"{name:30s} famCV F1={table[name]['family5_f1_mean']:.3f} [{' '.join(f'{m:.3f}' for m in table[name]['family5_f1'])}]"
+              f" lofo F1={lofo['f1']:.3f} (P={lofo['precision']:.2f} R={lofo['recall']:.2f}) | "
+              + fmt("shared", o, f" | fixed F1={fx['f1']:.3f} P={fx['precision']:.3f} R={fx['recall']:.3f} "
+                                 f"flag={fx['flag_rate']:.3f} exBig={fx['f1_ex_big']:.3f} ci=({fx['ci95'][0]:.3f},"
+                                 f"{fx['ci95'][1]:.3f}) | auc={table[name]['roc_auc']:.3f} "
+                                 f"ap={table[name]['pr_auc']:.3f} tok={tok:.0f}"), flush=True)
+    out = {"signals": table}
+    # The frozen configuration: best family-grouped CV F1 (mean over seeds) on all calls.
+    final = max(table, key=lambda k: table[k]["family5_f1_mean"])
     rows = list(sigs[final].values())
-    thr = pick(rows, "x", "f1")
-    print(f"frozen: {final} threshold (best F1 on all calls) {thr}")
-    print("dreadnode scorer, nested:", dreadnode_score(pred, "nested"))
-    print("dreadnode scorer, frozen OOF:", dreadnode_score(oof(rows), "frozen_oof"))
-    (sj.OUT / "phase3.json").write_text(json.dumps({"signals": table, "nested": n, "nested_chosen": chosen,
-                                                     "frozen": final, "frozen_thr": thr}, indent=1, default=str))
+    out |= {"frozen": final, "frozen_thr_all_calls": pick(rows, "x", "f1")}
+    print(f"frozen: {final}, threshold fitted on all calls {out['frozen_thr_all_calls']}")
+    for scheme in FAMILY + ["lofo"]:
+        d = describe(oof(rows, SCHEMES[scheme]), SCHEMES[scheme])
+        out[f"frozen_{scheme}"] = d
+        print(fmt(f"frozen {scheme}", {**d, "fold_f1": d["fold_f1"][:5]}), flush=True)
+    if nest:
+        for scheme in ["shared"] + FAMILY + ["lofo"]:
+            pred, chosen = nested(sigs, SCHEMES[scheme])
+            d = describe(pred, SCHEMES[scheme])
+            out[f"nested_{scheme}"] = {**d, "chosen": collections.Counter(chosen)}
+            print(fmt(f"NESTED {scheme}", {**d, "fold_f1": d["fold_f1"][:5]}), dict(collections.Counter(chosen)),
+                  flush=True)
+            if scheme == "family5 s0":
+                print("  dreadnode scorer:", dreadnode_score(pred, "nested_family5_s0"))
+    (sj.OUT / "phase3.json").write_text(json.dumps(out, indent=1, default=str))
 
 
 def main():
@@ -431,7 +470,7 @@ if __name__ == "__main__":
     if sys.argv[1:2] == ["dev"]:
         dev_report(sys.argv[2:] or ["v1"])
     elif sys.argv[1:2] == ["phase3"]:
-        phase3()
+        phase3(nest="--no-nest" not in sys.argv)
     elif sys.argv[1:2] == ["candidates"]:
         candidates(sys.argv[2:])
     elif sys.argv[1:2] == ["test"]:
