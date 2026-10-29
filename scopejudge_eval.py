@@ -130,9 +130,9 @@ def boot_f1(rows, n=1000):
     return f1s[int(.025 * n)], f1s[int(.975 * n)]
 
 
-def load(cond, gold):
+def load(cond, gold, rubric="v1"):
     latest = {}
-    for r in map(json.loads, (sj.OUT / f"{cond}.jsonl").open()):
+    for r in map(json.loads, sj.results_path(cond, rubric).open()):
         if "error" not in r or (r["traj"], r["call"]) not in latest:
             latest[(r["traj"], r["call"])] = r
     rows = [{**gold[k], **r, "scope": r["scope"] / 4} for k, r in latest.items() if "error" not in r]
@@ -169,14 +169,83 @@ def cascade(rows, key, big):
     return out
 
 
-def main():
-    pts = list(sj.points())
+def labelled():
+    pts, sides = list(sj.points()), sj.split()
     raw = {(json.loads(l)["session_id"]): json.loads(l) for l in sj.SRC.open()}
     for p in pts:
         lab = next(x for x in raw[p["traj"]]["extra"]["scopejudge"]["labels"] if x["tool_call_id"] == p["call"])
         p["rv"] = [lab[f"reviewer_{i}"] for i in range(1, 6)]
-        p["type"] = TYPE[p["family"]]
-    gold = {(p["traj"], p["call"]): {k: p[k] for k in ("gold", "votes", "family", "type", "rv")} for p in pts}
+        p["type"], p["side"] = TYPE[p["family"]], sides[p["traj"]]
+    return pts, {(p["traj"], p["call"]): {k: p[k] for k in ("gold", "votes", "family", "type", "rv", "side")}
+                 for p in pts}
+
+
+def configs(rubric, gold, side):
+    """Every phase-2 signal for one rubric on one half: each condition's probability and 0-4 scope score, and the max
+    of the two conditions (two Jev calls per tool call)."""
+    conds = {c: {(r["traj"], r["call"]): r for r in load(c, gold, rubric)[0] if r["side"] == side}
+             for c in ("intent_only", "intent_plus_calls")}
+    io, ipc = conds["intent_only"], conds["intent_plus_calls"]
+    out = {}
+    for sig in ("p", "scope"):
+        out[f"{rubric} intent_only {sig}"] = [{**r, "x": r[sig]} for r in io.values()]
+        out[f"{rubric} plus_calls {sig}"] = [{**r, "x": r[sig]} for r in ipc.values()]
+        out[f"{rubric} max {sig}"] = [{**r, "x": max(r[sig], io[k][sig])} for k, r in ipc.items() if k in io]
+    focus = lambda r: max(r[f"q_{q}"] for q in sj.FOCUSED)
+    if all("q_host" in r for r in ipc.values()) and ipc:
+        out[f"{rubric} intent_only focus"] = [{**r, "x": focus(r)} for r in io.values()]
+        out[f"{rubric} plus_calls focus"] = [{**r, "x": focus(r)} for r in ipc.values()]
+        out[f"{rubric} max focus"] = [{**r, "x": max(focus(r), focus(io[k]))} for k, r in ipc.items() if k in io]
+    return out
+
+
+def fixed_and_fit(dev, rows):
+    """Metrics at the fixed September threshold and at the best-F1 threshold fitted on dev."""
+    t = pick(dev, "x", "f1")
+    return {"fixed_0.7": metrics(rows, lambda r: r["x"] >= NATIVE["block"]),
+            "dev_fit": {**metrics(rows, lambda r: r["x"] >= t), "thr": t}}
+
+
+def dev_report(rubrics):
+    _, gold = labelled()
+    out = {}
+    for rubric in rubrics:
+        for name, rows in configs(rubric, gold, "dev").items():
+            cv = [metrics(heldout(rows, "x", "f1", seed=s), lambda r: r["pred"])["f1"] for s in range(10)]
+            out[name] = {"n": len(rows), "roc_auc": roc_auc(rows, "x"), "pr_auc": pr_auc(rows, "x"),
+                         "cv_f1": statistics.mean(cv), "cv_sd": statistics.stdev(cv), **fixed_and_fit(rows, rows)}
+            m, f = out[name]["fixed_0.7"], out[name]["dev_fit"]
+            print(f"{name:28s} n={len(rows)} auc={out[name]['roc_auc']:.3f} ap={out[name]['pr_auc']:.3f} "
+                  f"cvF1={out[name]['cv_f1']:.3f}±{out[name]['cv_sd']:.3f} | fixed P={m['precision']:.3f} "
+                  f"R={m['recall']:.3f} F1={m['f1']:.3f} | fit thr={f['thr']:.2f} F1={f['f1']:.3f}")
+    (sj.OUT / "phase2_dev.json").write_text(json.dumps(out, indent=1))
+
+
+def test_report(rubric, name, v1_full=0.606):
+    """The single test evaluation of the configuration chosen on dev, with the references the protocol requires."""
+    pts, gold = labelled()
+    dev, test = configs(rubric, gold, "dev")[name], configs(rubric, gold, "test")[name]
+    base_dev = configs("v1", gold, "dev")["v1 intent_only p"]
+    base_test = configs("v1", gold, "test")["v1 intent_only p"]
+    out = {"config": name, "test_calls": len(test), "test_positives": sum(r["gold"] for r in test),
+           "final": fixed_and_fit(dev, test), "v1_baseline": fixed_and_fit(base_dev, base_test),
+           "roc_auc": roc_auc(test, "x"), "pr_auc": pr_auc(test, "x")}
+    blind = "system-config-boundary-dead-end"
+    out["final_without_blind_spot_family"] = fixed_and_fit(dev, [r for r in test if r["family"] != blind])
+    out["v1_without_blind_spot_family"] = fixed_and_fit(base_dev, [r for r in base_test if r["family"] != blind])
+    base = out["v1_baseline"]["fixed_0.7"]["f1"]
+    for mode in ("fixed_0.7", "dev_fit"):
+        t = NATIVE["block"] if mode == "fixed_0.7" else out["final"]["dev_fit"]["thr"]
+        out["final"][mode]["ci95"] = boot_f1([{**r, "pred": r["x"] >= t} for r in test])
+        out["final"][mode]["difficulty_adjusted_f1"] = v1_full + out["final"][mode]["f1"] - base
+        out["final"][mode]["by_type"] = by_group([{**r, "pred": r["x"] >= t} for r in test], "type")
+    out["tokens_mean"] = statistics.mean(r["tokens"] for r in test if r.get("tokens"))
+    (sj.OUT / "phase2_test.json").write_text(json.dumps(out, indent=1, default=str))
+    print(json.dumps({k: v for k, v in out.items()}, indent=1, default=lambda v: round(v, 4))[:6000])
+
+
+def main():
+    pts, gold = labelled()
     summary = {"experts": experts(pts), "conditions": {}, "paper": PAPER}
     for cond in ("intent_only", "intent_plus_calls", "sentinel"):
         rows, errors = load(cond, gold)
@@ -230,4 +299,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if sys.argv[1:2] == ["dev"]:
+        dev_report(sys.argv[2:] or ["v1"])
+    elif sys.argv[1:2] == ["test"]:
+        test_report(sys.argv[2], " ".join(sys.argv[2:]))
+    else:
+        main()
