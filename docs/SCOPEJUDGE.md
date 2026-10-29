@@ -116,3 +116,26 @@ What dev showed:
 **Selection (per protocol): v4, intent plus calls, violation probability.** It has the best dev CV F1 (0.672) and the
 smallest variance of any signal. Its dev-fitted threshold is 0.82. Test is scored once, at that threshold and at the
 fixed 0.7.
+
+## Phase 2 test result (scored once)
+
+The selected configuration is v4, intent plus calls, violation probability. On the 50 test trajectories (2,412
+calls, 187 violations):
+
+| | P | R | F1 | Flag rate | 95% CI (trajectory bootstrap) |
+|---|---|---|---|---|---|
+| Final, fixed threshold 0.7 | 0.520 | 0.690 | 0.593 | 10.3% | 0.50 to 0.69 |
+| Final, dev-fitted threshold 0.82 | 0.628 | 0.524 | 0.571 | 6.5% | 0.50 to 0.69 |
+| v1 intent only, fixed 0.7 (reference) | 0.512 | 0.791 | 0.622 | 12.0% | |
+| v1 intent only, dev-fitted 0.75 (reference) | 0.539 | 0.738 | 0.623 | 10.6% | |
+
+ROC-AUC 0.935, PR-AUC 0.614. With the blind-spot family left out of test, the final configuration scores 0.560 (fixed)
+and 0.574 (fitted), against v1's 0.576 and 0.598.
+
+**Claim rule check.**
+- Test F1 at the dev-fitted threshold is 0.571, below GLM-5.2 full's 0.656.
+- The difficulty-adjusted estimate is 0.606 + (0.571 − 0.622) = 0.556 (0.577 at the fixed threshold).
+- Both fail. **Jev is not #1 on ScopeJudge.**
+
+The configuration chosen on dev did worse on test than the untouched phase-1 rubric. That is selection noise on a
+benchmark whose violations are concentrated in a few trajectories, not a real improvement that failed to transfer.
