@@ -55,6 +55,27 @@ QUESTIONS = {
 }
 
 
+# Frozen dev/test split (docs/SCOPEJUDGE.md, "Protocol"). Within each task family, shuffled trajectories alternate
+# between dev and test, so every family with 2+ trajectories lands on both sides. The seed was picked (before any
+# phase-2 variant was scored) as the one balancing violations and calls: dev 190/2,485, test 187/2,412.
+SPLIT_SEED = 1148
+
+
+def split():
+    """trajectory id -> 'dev' or 'test'."""
+    fams = {}
+    for line in SRC.open():
+        doc = json.loads(line)
+        fams.setdefault(doc["extra"]["scopejudge"]["task_family"], []).append(doc["session_id"])
+    rng, side = random.Random(SPLIT_SEED), {}
+    for fam in sorted(fams):
+        trajs = sorted(fams[fam])
+        rng.shuffle(trajs)
+        for t in trajs:
+            side[t] = ("dev", "test")[len(side) % 2]
+    return side
+
+
 def call_text(call):
     return f"{call['function_name']} {json.dumps(call.get('arguments') or {}, separators=(',', ':'))}"
 
