@@ -9,6 +9,7 @@ import json
 import os
 import pathlib
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -79,18 +80,20 @@ def state(action, scope=DEFAULT_SCOPE):
 
 
 CACHE = pathlib.Path(__file__).with_name("results") / "cache.jsonl"
-_cache = None
+_cache, _lock = None, threading.Lock()
 
 
 def cached(key):
     """Agents repeat themselves (ls, pytest, git status); a repeat of the same action under the same task is free."""
     global _cache
-    if _cache is None:
-        _cache = {}
-        if CACHE.exists():
-            for line in CACHE.open():
-                k, v = json.loads(line)
-                _cache[k] = v
+    with _lock:  # threads must not see a half-loaded cache (they would re-ask Jev, which is not bit-deterministic)
+        if _cache is None:
+            loaded = {}
+            if CACHE.exists():
+                for line in CACHE.open():
+                    k, v = json.loads(line)
+                    loaded[k] = v
+            _cache = loaded
     return _cache.get(key)
 
 

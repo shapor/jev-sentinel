@@ -120,14 +120,18 @@ def heldout(rows, key, goal, folds=5, seed=0):
     return out
 
 
-def boot_f1(rows, n=1000):
-    """95% interval for held-out F1, resampling whole trajectories."""
-    by = collections.defaultdict(list)
-    for r in rows:
-        by[r["traj"]].append(r)
-    keys, rng, f1s = list(by), random.Random(1), []
+def boot_f1(rows, n=1000, by="traj", base=None):
+    """95% interval for held-out F1, resampling whole trajectories (or, by="family", whole task families). With
+    `base` (other predictions on the same calls), the interval of F1(rows) - F1(base) over the same draws."""
+    groups = [collections.defaultdict(list) for _ in range(2)]
+    for g, rs in zip(groups, (rows, base or [])):
+        for r in rs:
+            g[r[by]].append(r)
+    keys, rng, f1s = list(groups[0]), random.Random(1), []
     for _ in range(n):
-        f1s.append(metrics([r for k in rng.choices(keys, k=len(keys)) for r in by[k]], lambda r: r["pred"])["f1"])
+        draw = rng.choices(keys, k=len(keys))
+        f1s.append(metrics([r for k in draw for r in groups[0][k]], lambda r: r["pred"])["f1"] - (metrics(
+            [r for k in draw for r in groups[1][k]], lambda r: r["pred"])["f1"] if base else 0))
     f1s.sort()
     return f1s[int(.025 * n)], f1s[int(.975 * n)]
 
@@ -411,6 +415,100 @@ def phase3(nest=True):
     (sj.OUT / "phase3.json").write_text(json.dumps(out, indent=1, default=str))
 
 
+# The combined judge (docs/SJ_COMBO.md). Its headline is the untuned COMBO_AT threshold, which nothing is fitted for,
+# so every fold scheme pools to the same predictions; the schemes matter for the per-fold spread, the in-fold
+# threshold (secondary) and arm selection. Intervals resample trajectories and, stricter, whole families.
+FAMILY_SCHEMES = FAMILY + ["lofo"]  # never "shared": it is trajectory-grouped and leaks families
+
+
+def combo_rows(arm, gold):
+    rows = [json.loads(line) for line in (sj.OUT / f"combo_{arm}_{sj.SRC.stem}.jsonl").open()]
+    return [{**gold[(r["traj"], r["call"])], **r} for r in rows if "error" not in r]
+
+
+def at(rows, t=sj.COMBO_AT):
+    return [{**r, "pred": r["x"] >= t} for r in rows]
+
+
+def select_arm(arms, fk):
+    """Honest arm selection: for each held-out fold, the arm with the best F1 at the fixed threshold on the other
+    folds is applied to it."""
+    out, chosen = [], []
+    for k in sorted({fk(r) for r in next(iter(arms.values()))}):
+        best = max(arms, key=lambda a: metrics([r for r in at(arms[a]) if fk(r) != k], lambda r: r["pred"])["f1"])
+        chosen.append(best)
+        out += [r for r in at(arms[best]) if fk(r) == k]
+    return out, collections.Counter(chosen)
+
+
+def latency(rows):
+    live = sorted(r["ms"] for r in rows if "ms" in r and not r.get("cached"))
+    return (live[len(live) // 2], live[int(.95 * len(live))], len(live)) if len(live) > 20 else None
+
+
+def combo_report():
+    _, gold = labelled()
+    arms = {a: combo_rows(a, gold) for a in sj.ARMS if (sj.OUT / f"combo_{a}_{sj.SRC.stem}.jsonl").exists()}
+    frozen = arms[sj.FROZEN]
+    dec = collections.defaultdict(list)  # the decomposition lane's own per-limit answers (v1 rendering, call last)
+    for r in map(json.loads, (sj.OUT / "decomp_intent_plus_calls_block.jsonl").open()):
+        if "error" not in r:
+            dec[(r["traj"], r["call"])].append(r)
+    dec = {k: {**gold[k], "traj": k[0], "call": k[1], "x": statistics.mean(r["x"] for r in v),
+               "tokens": sum(r["tokens"] for r in v), "calls": len(v)} for k, v in dec.items()}
+    v5 = {(r["traj"], r["call"]): r for r in arms["base"]}
+    sigs = {**arms,  # plus ablations that need no new Jev calls:
+            "frozen run, holistic half only": [{**r, "x": r["sf"]} for r in frozen],  # same flag marks
+            "frozen run, limits half only": [{**r, "x": statistics.mean(r["limits"])} for r in frozen],
+            "decomp lane (v1 block mean)": list(dec.values()),
+            "call-last v5 sf + decomp-lane limits": [  # stands in for the unrun call-last "limits" arm
+                {**d, "x": (v5[k]["x"] + d["x"]) / 2, "tokens": v5[k]["tokens"] + d["tokens"], "calls": d["calls"] + 1}
+                for k, d in dec.items() if k in v5]}
+    out, ref = {"arms": {}}, {(r["traj"], r["call"]): r for r in at(frozen)}
+    for name, rows in sigs.items():
+        fx = at(rows)
+        m = describe(fx)
+        e = out["arms"][name] = {
+            **m, "ci95_family": boot_f1(fx, by="family"), "roc_auc": roc_auc(rows, "x"), "pr_auc": pr_auc(rows, "x"),
+            "fold_f1": {k: describe(fx, SCHEMES[k])["fold_f1"] for k in FAMILY_SCHEMES},
+            "infold_thr_f1": {k: metrics(oof(rows, SCHEMES[k]), lambda r: r["pred"])["f1"] for k in FAMILY_SCHEMES},
+            "calls": statistics.mean(r.get("calls", 1) for r in rows),
+            "cost_per_1k": statistics.mean(r["tokens"] for r in rows) * PRICE * 1000,
+            "latency": latency(rows) or name in arms and latency(load(  # all cached: the lane's original timings
+                "intent_plus_calls", gold, "v5callfirst" if sj.ARMS[name]["callfirst"] else "v5")[0])}
+        if name != sj.FROZEN:  # paired on the calls this signal scored (partial arms: credits ran out)
+            same = [ref[(r["traj"], r["call"])] for r in fx]
+            e["frozen_minus_this"] = metrics(same, lambda r: r["pred"])["f1"] - m["f1"]
+            e["frozen_minus_this_ci_family"] = boot_f1(same, by="family", base=fx)
+        print(f"{name:36s} n={m['scored']} P={m['precision']:.3f} R={m['recall']:.3f} F1={m['f1']:.3f} "
+              f"flag={m['flag_rate']:.3f} ciT=({m['ci95'][0]:.3f},{m['ci95'][1]:.3f}) ciF=({e['ci95_family'][0]:.3f},"
+              f"{e['ci95_family'][1]:.3f}) exBig={m['f1_ex_big']:.3f} auc={e['roc_auc']:.3f} ap={e['pr_auc']:.3f} "
+              f"inFoldThr={' '.join(f'{v:.3f}' for v in e['infold_thr_f1'].values())} calls={e['calls']:.2f} "
+              f"$/1k={e['cost_per_1k']:.3f} lat={e['latency']}"
+              + (f" frozen-this={e['frozen_minus_this']:+.3f} ciF=({e['frozen_minus_this_ci_family'][0]:+.3f},"
+                 f"{e['frozen_minus_this_ci_family'][1]:+.3f})" if name != sj.FROZEN else ""), flush=True)
+    fx = at(frozen)
+    out["frozen"] = {"arm": sj.FROZEN, "threshold": sj.COMBO_AT,
+                     "dreadnode_fixed": dreadnode_score(fx, "combo_fixed"),
+                     "vs_glm_full_ci_family": boot_f1(fx, by="family")}
+    for k in FAMILY_SCHEMES:  # secondary: the threshold fitted on the other folds; and honest arm selection
+        pred = oof(frozen, SCHEMES[k])
+        d = describe(pred, SCHEMES[k])
+        out["frozen"][f"infold_thr {k}"] = {**d, "ci95_family": boot_f1(pred, by="family"),
+                                           "thresholds": sorted({round(r["thr"], 3) for r in pred})}
+        sel, chosen = select_arm({a: arms[a] for a in arms if len(arms[a]) == len(frozen)}, SCHEMES[k])
+        out["frozen"][f"arm_select {k}"] = {**describe(sel, SCHEMES[k]), "ci95_family": boot_f1(sel, by="family"),
+                                           "chosen": chosen}
+        print(fmt(f"frozen in-fold thr {k}", {**d, "fold_f1": d["fold_f1"][:5]}),
+              f"thr={out['frozen'][f'infold_thr {k}']['thresholds'][:6]}")
+        print(fmt(f"arm selection {k}", {**out["frozen"][f"arm_select {k}"], "fold_f1": []}), dict(chosen),
+              flush=True)
+        if k in ("family5 s0", "lofo"):
+            out["frozen"][f"dreadnode infold_thr {k}"] = dreadnode_score(pred, f"combo_infold_{k.replace(' ', '_')}")
+    print("dreadnode scorer, frozen @0.7:", out["frozen"]["dreadnode_fixed"])
+    (sj.OUT / "combo.json").write_text(json.dumps(out, indent=1, default=str))
+
+
 def main():
     pts, gold = labelled()
     summary = {"experts": experts(pts), "conditions": {}, "paper": PAPER}
@@ -469,6 +567,8 @@ if __name__ == "__main__":
     import sys
     if sys.argv[1:2] == ["dev"]:
         dev_report(sys.argv[2:] or ["v1"])
+    elif sys.argv[1:2] == ["combo"]:
+        combo_report()
     elif sys.argv[1:2] == ["phase3"]:
         phase3(nest="--no-nest" not in sys.argv)
     elif sys.argv[1:2] == ["candidates"]:
