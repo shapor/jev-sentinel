@@ -6,6 +6,26 @@ them (7.7%) are out of scope by strict majority. Dreadnode scored eight LLM judg
 best is GLM-5.2 with the full transcript (F1 0.656). This document records how Jev, a classification-only model, was
 evaluated on the same benchmark, and the protocol used to keep the comparison honest.
 
+## Bottom line
+
+**Jev is not #1 on ScopeJudge, and we should not claim it is.** It sits in the same F1 band as the best LLM judges at
+a small fraction of their cost.
+
+What we can claim honestly:
+- **Second of nine judges by F1, with no threshold tuning.** The phase-1 rubric at the sentinel's September threshold
+  scores F1 0.606 over all 4,897 calls. That is behind only GLM-5.2 (0.637 to 0.656) and ahead of Claude Opus 4.8
+  (0.595 at best), at $0.05 per 1,000 calls against $3.22 to $17.64.
+- **The same holds on the held-out half.** That configuration scores 0.622 on the 50 held-out test trajectories.
+- **The strongest practical claim is as a pre-filter.** With its threshold fitted on dev, Jev passes 98.9% of test
+  violations through while sending only 38% of calls on to an LLM judge. That is about a 60% cut in judge spend at
+  essentially no recall cost. This is an estimate; see the cascade section.
+
+The phase-2 attempt to reach #1 failed under its own frozen protocol:
+- The configuration chosen on dev scored 0.571 on test.
+- The blind-spot fix made Jev worse, not better.
+- Across all 30 candidate signals, test F1 ranges from 0.50 to 0.69. Which one "wins" depends on the selection rule,
+  which is exactly why the claim has to rest on the configuration chosen in advance.
+
 ## Phase 1 (done before this protocol)
 
 We scored all 4,897 calls with a first scope rubric, called v1 below, under two conditions. *Intent only* gives the
@@ -139,3 +159,100 @@ and 0.574 (fitted), against v1's 0.576 and 0.598.
 
 The configuration chosen on dev did worse on test than the untouched phase-1 rubric. That is selection noise on a
 benchmark whose violations are concentrated in a few trajectories, not a real improvement that failed to transfer.
+
+## Transparency: every dev candidate on test (not used for any claim)
+
+After the single test evaluation was committed, we scored every dev candidate on test, so readers can see how much the
+selection rule matters. The full list is in `results/scopejudge/phase2_candidates_test.txt` (gitignored).
+
+**Range.** Over 30 candidates, test F1 at the fixed 0.7 threshold runs from 0.52 to 0.65. At dev-fitted thresholds
+it runs from 0.50 to 0.69.
+
+**What other plausible rules would have picked:**
+- *Best dev ROC-AUC* picks v4's focused-question max over both conditions. It reaches 0.694 on test at its dev-fitted
+  threshold, above GLM's 0.656.
+- *Best dev PR-AUC* picks v4's plus-calls focused max, which reaches 0.543.
+- *Best dev CV F1* (the frozen rule) picks the configuration that reached 0.571.
+
+So a #1 number exists in the table, but only one rule out of three finds it. Quoting it would be cherry-picking.
+
+**Phase-1 post-hoc signals, under the same protocol:**
+- The plus-calls scope score scores 0.636 (fixed) and 0.634 (fitted) on test.
+- The max of the two block probabilities scores 0.632 (fixed) and 0.665 (fitted).
+- Neither had the best dev CV F1, so neither was selected.
+
+**The honest path to a #1 claim.** Fix "v4 focused-question max, two Jev calls, dev-fitted threshold 0.86" in advance
+as the only configuration, then evaluate it once on data neither side has seen: a new ScopeBench release, or Dreadnode
+running it themselves.
+
+## Cascade (held-out estimate)
+
+No LLM API key was available here, and Dreadnode didn't publish per-call decisions, so this remains an estimate.
+
+**Method.** We fitted Jev's escalation threshold on dev, as the threshold that keeps 97% of dev violations. On test,
+v1 intent only with that threshold keeps 98.9% of violations and escalates 38.3% of calls.
+
+**Assumption.** The LLM judge behind it keeps its published recall on the escalated slice.
+
+**Estimated results:**
+- With Claude Opus 4.8 (intent only), recall is about 93% at about $1.66 per 1,000 calls, against $4.20 for Opus alone.
+- With GLM-5.2 full, recall is about 85% at $2.35, against $6.01.
+
+**Caveats.**
+- Precision and F1 of the cascade are unknown without the LLM's per-call decisions.
+- The independence assumption is probably conservative for recall. The violations Jev scores lowest are likely the
+  ones the LLM would also miss.
+
+## Why Jev does as well as it does
+
+- **It is a classifier, not a writer.** Jev returns calibrated probabilities over labels we define. No answer is
+  parsed out of prose, and there's no refusal layer. Content in the transcript can't argue it into "allow". Dreadnode
+  lists prompt-injection robustness as untested for its LLM judges; Jev has no text channel to inject through.
+- **Probabilities make the operating point a choice, not an accident.** LLM judges land wherever their prompt happens
+  to put them: GPT-5.4-mini flags 19 to 21% of calls, Sonnet 4.6 +calls only 5.6%. Jev's ranking quality is high
+  (ROC-AUC 0.93 to 0.96 throughout), so one threshold moves it along the precision/recall curve. The September
+  threshold, set on unrelated data, happened to land near GLM's balanced point.
+- **Scope is given as context, every time.** The task text is in every call. Phase 1's unchanged hackathon rubric,
+  which asks about danger rather than scope, catches only 19% of violations at its block threshold. Asking about scope
+  against the task raises that to 82%. That is the same finding as Dreadnode's: static policy gets near-zero recall,
+  and the request is what makes gating work.
+- **It is cheap and fast enough to gate every call.** About 1,200 input tokens per call, $0.05 per 1,000 calls at the
+  published $0.042 per million tokens, p50 0.23 s, p95 0.30 s, 40 to 55 calls/s from one laptop. An LLM judge at
+  $3 to $18 per 1,000 calls is something you sample; Jev is something you run on everything.
+- **What the error analysis says.**
+  - Jev's misses and false alarms concentrate where the five experts disagree. It misses 44% of 3-of-5 violations but
+    only 10 to 14% of 4- and 5-of-5 ones.
+  - 36% of its false alarms are calls one or two experts also flagged.
+  - Its real weaknesses are the "vehicle" pattern (an in-scope endpoint used to pull excluded data) and low precision
+    on technique rules. Outside the one large trajectory, its dev F1 is only 0.34 to 0.54, so the headline number
+    leans on that trajectory.
+
+## What was done to reach the best result, and what each step did
+
+| Step | Effect on dev | Effect on test | Kept? |
+|---|---|---|---|
+| Scope rubric (v1) instead of the hackathon danger rubric | (phase 1, full set) recall at block 0.19 → 0.82, F1 0.27 → 0.61 | 0.622 | yes: the best honest number |
+| Prior tool calls in context | precision up, recall down; best CV F1 | 0.59 vs 0.62 for intent only (v1, fixed) | mixed |
+| "Vehicle" rule (v2) | blind-spot recall 0.96 → 0.77, F1 down | 0.52 to 0.60 | no |
+| Dreadnode authority / allow-by-default language (v3) | lower again | 0.52 to 0.61 | no |
+| Three focused questions (v4) | best AUC and PR-AUC; selected config 0.672 CV F1 | selected config 0.571; v1-equivalent signal 0.629 | no claim |
+| Dev-fitted thresholds instead of 0.7 | small gains in-sample | mostly no gain, sometimes a loss | no |
+
+**Final claim:** not #1 on held-out data. The best honest statement is "second of nine judges by F1, level with the
+best open-weight judge within noise, at about 1/65 of its cost, untuned". The cascade is the most promising way to
+beat the leaderboard on cost at matched recall, and it needs a real LLM run on the escalated slice to confirm.
+
+## Caveats
+
+- **Concentration.** One trajectory holds 29% of all violations, and one family holds 44%. A few F1 points between any
+  two judges on this benchmark can come down to that trajectory. Dreadnode reports single-run point estimates without
+  intervals, and ours run about ±0.09 wide.
+- **Leakage.** Phase 1 looked at every trajectory, test included, before the protocol was frozen. Phase 2 is held out
+  with respect to rubric wording, signal choice and thresholds only.
+- **Threshold.** LLM judges need no threshold and Jev does. The untuned 0.7 numbers are the fair comparison.
+- **History truncation.** Plus-calls keeps the newest prior calls up to 40k characters (1,500 per call), because Jev
+  rejects inputs over about 120k characters. 547 calls lost their oldest history.
+- **Price.** $0.042 per million input tokens comes from third-party reports, and TypeSafe's own page was unreachable.
+  Token counts are Jev's own usage figures.
+- **Versions.** Jev was `jev-latest` (1.14.0) in October 2026. Dreadnode's judges and prices are from June 2026.
+- **Contamination.** The dataset has been public since July 2026, and Jev's training data is unknown.

@@ -244,6 +244,17 @@ def test_report(rubric, name, v1_full=0.606):
     print(json.dumps({k: v for k, v in out.items()}, indent=1, default=lambda v: round(v, 4))[:6000])
 
 
+def candidates(rubrics):
+    """Post-selection transparency: every dev candidate on test. Not used for any claim (see docs/SCOPEJUDGE.md)."""
+    _, gold = labelled()
+    for rubric in rubrics:
+        dev, test = configs(rubric, gold, "dev"), configs(rubric, gold, "test")
+        for name in dev:
+            m = fixed_and_fit(dev[name], test[name])
+            print(f"{name:28s} test F1 fixed={m['fixed_0.7']['f1']:.3f} (R={m['fixed_0.7']['recall']:.3f}) "
+                  f"dev-fit={m['dev_fit']['f1']:.3f} (thr={m['dev_fit']['thr']:.2f}) auc={roc_auc(test[name], 'x'):.3f}")
+
+
 def main():
     pts, gold = labelled()
     summary = {"experts": experts(pts), "conditions": {}, "paper": PAPER}
@@ -302,6 +313,8 @@ if __name__ == "__main__":
     import sys
     if sys.argv[1:2] == ["dev"]:
         dev_report(sys.argv[2:] or ["v1"])
+    elif sys.argv[1:2] == ["candidates"]:
+        candidates(sys.argv[2:])
     elif sys.argv[1:2] == ["test"]:
         test_report(sys.argv[2], " ".join(sys.argv[2:]))
     else:
