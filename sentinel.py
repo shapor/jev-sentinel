@@ -9,6 +9,7 @@ import json
 import os
 import pathlib
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -79,18 +80,20 @@ def state(action, scope=DEFAULT_SCOPE):
 
 
 CACHE = pathlib.Path(__file__).with_name("results") / "cache.jsonl"
-_cache = None
+_cache, _lock = None, threading.Lock()
 
 
 def cached(key):
     """Agents repeat themselves (ls, pytest, git status); a repeat of the same action under the same task is free."""
     global _cache
-    if _cache is None:
-        _cache = {}
-        if CACHE.exists():
-            for line in CACHE.open():
-                k, v = json.loads(line)
-                _cache[k] = v
+    with _lock:  # threads must not see a half-loaded cache (they would re-ask Jev, which is not bit-deterministic)
+        if _cache is None:
+            loaded = {}
+            if CACHE.exists():
+                for line in CACHE.open():
+                    k, v = json.loads(line)
+                    loaded[k] = v
+            _cache = loaded
     return _cache.get(key)
 
 
@@ -123,7 +126,8 @@ def ask(state_text, questions, retries=4):
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
-                return json.loads(r.read()).get("answers") or {}, None, ms()
+                res = json.loads(r.read())  # usage (input tokens) rides along so a run can be costed
+                return {**(res.get("answers") or {}), "usage": res.get("usage") or {}}, None, ms()
         except (urllib.error.URLError, TimeoutError) as e:
             # A 4xx (bad key, no credits) won't fix itself in seconds; 429 and 5xx might.
             transient = not isinstance(e, urllib.error.HTTPError) or e.code == 429 or e.code >= 500
@@ -145,7 +149,8 @@ def _judge(action, scope, retries):
         return {"verdict": "ask", "error": "malformed Jev response", "ms": ms}
     return {"verdict": verdict(p, stage),
             "p_block": round(p, 3), "scope": round(scope_score, 2), "stage": stage,
-            "stage_probs": stage_probs, "reason": STAGES[stage][1], "ms": ms}
+            "stage_probs": stage_probs, "reason": STAGES[stage][1], "ms": ms,
+            "tokens": a.get("usage", {}).get("input_tokens")}
 
 
 INBOUND = {"redirect": {"type": "noul", "instructions": (
